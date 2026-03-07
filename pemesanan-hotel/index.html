@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="./assets/img/logo.png" type="image/png">
+    <title>DRAMOK PABW</title>
+    <link rel="stylesheet" href="./assets/css/style.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>DRAMOK PABW</h1>
+                </div>
+                <div class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <nav class="nav" id="navMenu">
+                    <a href="#rooms" onclick="closeMobileMenu()">Kamar</a>
+                    <a href="#amenities" onclick="closeMobileMenu()">Fasilitas</a>
+                    <a href="#contact" onclick="closeMobileMenu()">Kontak</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h2 class="hero-title">Rasakan Kemewahan Sejati Nusantara</h2>
+            <p class="hero-subtitle">Manjakan diri Anda dalam kenyamanan kelas dunia dan layanan istimewa khas Indonesia.</p>
+            <button class="btn btn-primary hero-btn" onclick="scrollToRooms()">JELAJAHI KAMAR</button>
+        </div>
+    </section>
+
+    <!-- Quick Booking Bar -->
+    <section class="quick-booking">
+        <div class="container">
+            <div class="booking-bar">
+                <div class="booking-field">
+                    <label>Check-In</label>
+                    <input type="date" id="quick-checkin" class="date-input">
+                </div>
+                <div class="booking-field">
+                    <label>Check-Out</label>
+                    <input type="date" id="quick-checkout" class="date-input">
+                </div>
+                <div class="booking-field">
+                    <label>Tamu</label>
+                    <select id="quick-guests" class="select-input">
+                        <option value="1">1 Tamu</option>
+                        <option value="2" selected>2 Tamu</option>
+                        <option value="3">3 Tamu</option>
+                        <option value="4">4 Tamu</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="filterRooms()">CARI KAMAR</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Rooms Section -->
+    <section id="rooms" class="rooms-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Pilihan Akomodasi Istimewa Kami</h2>
+                <p>Pilih dari koleksi kamar dan suite mewah kami yang dirancang untuk kenyamanan Anda.</p>
+            </div>
+
+            <div class="rooms-grid">
+                <!-- Deluxe Room (was Standard) -->
+                <div class="room-card" data-room-type="standard" data-price="2500000" data-capacity="2">
+                    <div class="room-image">
+                        <img src="https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800&h=600&fit=crop" alt="Kamar Deluxe">
+                        <div class="discount-badge seasonal">DISKON 20% - Musiman</div>
+                    </div>
+                    <div class="room-content">
+                        <h3>Kamar Deluxe</h3>
+                        <div class="room-price">
+                            <span class="price-amount">Rp 2.500.000</span>
+                            <span class="price-period">/ malam</span>
+                        </div>
+                        <p class="room-description">Kamar elegan dengan fasilitas modern, pemandangan taman, sempurna untuk peristirahatan Anda.</p>
+                        <ul class="room-amenities">
+                            <li>🛏️ Tempat Tidur Queen Size</li>
+                            <li>📺 Smart TV 4K</li>
+                            <li>📶 WiFi Berkecepatan Tinggi</li>
+                            <li>☕ Mesin Kopi Premium</li>
+                            <li>🚿 Kamar Mandi Marmer</li>
+                        </ul>
+                        <button class="btn btn-secondary book-btn" onclick="openBookingModal('Kamar Deluxe', 2500000, 2)">PESAN SEKARANG</button>
+                    </div>
+                </div>
+
+                <!-- Premier Room (was Deluxe) -->
+                <div class="room-card" data-room-type="deluxe" data-price="3500000" data-capacity="2">
+                    <div class="room-image">
+                        <img src="https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&h=600&fit=crop" alt="Kamar Premier">
+                        <div class="discount-badge early-bird">DISKON 15% - Pesan Awal</div>
+                    </div>
+                    <div class="room-content">
+                        <h3>Kamar Premier</h3>
+                        <div class="room-price">
+                            <span class="price-amount">Rp 3.500.000</span>
+                            <span class="price-period">/ malam</span>
+                        </div>
+                        <p class="room-description">Lebih luas dengan perabotan premium dan pemandangan kota yang menakjubkan.</p>
+                        <ul class="room-amenities">
+                            <li>🛏️ Tempat Tidur King Size</li>
+                            <li>📺 Smart TV 4K 55-inch</li>
+                            <li>📶 WiFi Berkecepatan Tinggi</li>
+                            <li>☕ Mesin Espresso</li>
+                            <li>🛁 Bathtub & Shower Hujan</li>
+                            <li>🪟 Pemandangan Kota</li>
+                            <li>🍷 Mini Bar Gratis</li>
+                        </ul>
+                        <button class="btn btn-secondary book-btn" onclick="openBookingModal('Kamar Premier', 3500000, 2)">PESAN SEKARANG</button>
+                    </div>
+                </div>
+
+                <!-- Executive Suite (was Junior Suite) -->
+                <div class="room-card featured" data-room-type="suite" data-price="5000000" data-capacity="3">
+                    <div class="room-image">
+                        <img src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop" alt="Suite Eksekutif">
+                        <div class="featured-badge">PALING POPULER</div>
+                    </div>
+                    <div class="room-content">
+                        <h3>Suite Eksekutif</h3>
+                        <div class="room-price">
+                            <span class="price-amount">Rp 5.000.000</span>
+                            <span class="price-period">/ malam</span>
+                        </div>
+                        <p class="room-description">Suite mewah dengan ruang tamu terpisah, akses lounge eksklusif, dan layanan personal.</p>
+                        <ul class="room-amenities">
+                            <li>🛏️ Tempat Tidur King + Sofa Bed</li>
+                            <li>🛋️ Ruang Tamu Terpisah</li>
+                            <li>📺 2x Smart TV 4K</li>
+                            <li>📶 WiFi Premium</li>
+                            <li>☕ Dapur Kecil</li>
+                            <li>🛁 Kamar Mandi Spa dengan Jacuzzi</li>
+                            <li>👔 Akses Lounge Eksekutif</li>
+                        </ul>
+                        <button class="btn btn-secondary book-btn" onclick="openBookingModal('Suite Eksekutif', 5000000, 3)">PESAN SEKARANG</button>
+                    </div>
+                </div>
+
+                <!-- Presidential Suite -->
+                <div class="room-card" data-room-type="presidential" data-price="15000000" data-capacity="4">
+                    <div class="room-image">
+                        <img src="https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&h=600&fit=crop" alt="Suite Presidensial">
+                        <div class="featured-badge">EKSKLUSIF</div>
+                    </div>
+                    <div class="room-content">
+                        <h3>Suite Presidensial</h3>
+                        <div class="room-price">
+                            <span class="price-amount">Rp 15.000.000</span>
+                            <span class="price-period">/ malam</span>
+                        </div>
+                        <p class="room-description">Puncak kemewahan dengan fasilitas terbaik, pemandangan 360°, dan pelayan pribadi 24 jam.</p>
+                        <ul class="room-amenities">
+                            <li>🛏️ 2 Kamar Tidur Utama</li>
+                            <li>🛋️ Ruang Tamu & Ruang Makan Pribadi</li>
+                            <li>🎬 Home Theater Pribadi</li>
+                            <li>🏊 Kolam Renang Pribadi di Rooftop</li>
+                            <li>🏋️ Gym & Spa Pribadi</li>
+                            <li>👔 Pelayan Pribadi 24/7</li>
+                            <li>🎹 Grand Piano</li>
+                        </ul>
+                        <button class="btn btn-secondary book-btn" onclick="openBookingModal('Suite Presidensial', 15000000, 4)">PESAN SEKARANG</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Amenities Section -->
+    <section id="amenities" class="amenities-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Fasilitas Berkelas Dunia</h2>
+                <p>Semua yang Anda butuhkan untuk sebuah pengalaman menginap yang tak terlupakan.</p>
+            </div>
+            <div class="amenities-grid">
+                <div class="amenity-item">
+                    <div class="amenity-icon">🏊</div>
+                    <h3>Kolam Renang Infinity</h3>
+                    <p>Kolam renang di puncak gedung dengan pemandangan cakrawala kota.</p>
+                </div>
+                <div class="amenity-item">
+                    <div class="amenity-icon">🍽️</div>
+                    <h3>Restoran Gastronomi</h3>
+                    <p>Nikmati hidangan dari chef pemenang penghargaan Michelin Star.</p>
+                </div>
+                <div class="amenity-item">
+                    <div class="amenity-icon">💆</div>
+                    <h3>Spa & Kebugaran</h3>
+                    <p>Spa layanan lengkap dan pusat kebugaran dengan peralatan canggih.</p>
+                </div>
+                <div class="amenity-item">
+                    <div class="amenity-icon">🚁</div>
+                    <h3>Layanan Helipad</h3>
+                    <p>Akses pendaratan helikopter pribadi untuk tamu VVIP.</p>
+                </div>
+                <div class="amenity-item">
+                    <div class="amenity-icon">🏢</div>
+                    <h3>Pusat Bisnis & Konferensi</h3>
+                    <p>Ruang rapat modern dengan teknologi terkini.</p>
+                </div>
+                <div class="amenity-item">
+                    <div class="amenity-icon">🛎️</div>
+                    <h3>Layanan Concierge</h3>
+                    <p>Layanan personal 24 jam untuk segala kebutuhan Anda.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Booking Modal -->
+    <div id="bookingModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeBookingModal()">&times;</span>
+            <h2>SELESAIKAN PEMESANAN ANDA</h2>
+            <div id="modalRoomInfo" class="modal-room-info"></div>
+            
+            <form id="bookingForm" class="booking-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="checkin">Tanggal Check-In *</label>
+                        <input type="date" id="checkin" name="checkin" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="checkout">Tanggal Check-Out *</label>
+                        <input type="date" id="checkout" name="checkout" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="guests">Jumlah Tamu *</label>
+                        <select id="guests" name="guests" required>
+                            <option value="1">1 Tamu</option>
+                            <option value="2">2 Tamu</option>
+                            <option value="3">3 Tamu</option>
+                            <option value="4">4 Tamu</option>
+                            <option value="5">5 Tamu</option>
+                            <option value="6">6 Tamu</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="discount">Kode Diskon</label>
+                        <select id="discount" name="discount" onchange="calculateTotal()">
+                            <option value="none">Tanpa Diskon</option>
+                            <option value="early">Pemesanan Awal (Diskon 15%)</option>
+                            <option value="seasonal">Musiman (Diskon 20%)</option>
+                            <option value="loyalty">Loyalitas (Diskon 10%)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fullname">Nama Lengkap *</label>
+                        <input type="text" id="fullname" name="fullname" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Alamat Email *</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="phone">Nomor Telepon *</label>
+                        <input type="tel" id="phone" name="phone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="country">Negara *</label>
+                        <input type="text" id="country" name="country" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="requests">Permintaan Khusus</label>
+                    <textarea id="requests" name="requests" rows="3" placeholder="Tulis permintaan atau preferensi khusus Anda..."></textarea>
+                </div>
+
+                <div class="price-summary">
+                    <div class="summary-row">
+                        <span>Tarif Kamar:</span>
+                        <span id="roomRate">Rp 0</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Jumlah Malam:</span>
+                        <span id="numNights">0</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">Rp 0</span>
+                    </div>
+                    <div class="summary-row discount-row">
+                        <span>Diskon:</span>
+                        <span id="discountAmount">Rp 0</span>
+                    </div>
+                    <div class="summary-row total-row">
+                        <span>Jumlah Total:</span>
+                        <span id="totalAmount">Rp 0</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full">KONFIRMASI PEMESANAN</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content confirmation-content">
+            <span class="close" onclick="closeConfirmationModal()">&times;</span>
+            <div class="confirmation-icon">✓</div>
+            <h2>PEMESANAN DIKONFIRMASI!</h2>
+            <p>Terima kasih telah memilih Hotel DRAMOK PABW. Reservasi Anda telah berhasil kami konfirmasi.</p>
+            <div id="confirmationDetails" class="confirmation-details"></div>
+            <p class="confirmation-note">Email konfirmasi telah dikirimkan ke alamat email Anda.</p>
+            <button class="btn btn-primary" onclick="closeConfirmationModal()">TUTUP</button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer id="contact" class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>DRAMOK PABW</h3>
+                    <p>Rasakan kemewahan tak tertandingi dengan layanan dan fasilitas kelas dunia di jantung Indonesia.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Kontak</h4>
+                    <p>📍 Jl. Jenderal Sudirman Kav. 1, Jakarta Pusat, Indonesia</p>
+                    <p>📞 +62 21 111 1234</p>
+                    <p>✉️ <a href="mailto:reservasi@dramokpabw.com">reservasi@dramokpabw.com</a></p>
+                </div>
+                <div class="footer-section">
+                    <h4>Tautan Cepat</h4>
+                    <a href="#rooms">Kamar</a>
+                    <a href="#amenities">Fasilitas</a>
+                    <a href="#contact">Kontak</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Dramok Pabw. Hak cipta dilindungi.</p>
+            </div>
+        </div>
+    </footer>
+    <script src="./assets/js/script.js"></script>
+</body>
+
+</html>
