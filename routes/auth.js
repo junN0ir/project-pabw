@@ -9,4 +9,11 @@ router.get("/history", async (req, res) => {
     return res.status(statusCode).json(result);
 });
 
+router.post("/register", async (req, res) => {
+    const result = await AuthController.register(req.body);
+    const statusCode = result.status === "error" ? 500 : 201;
+    return res.status(statusCode).json(result);
+});
+
+
 export default router;
