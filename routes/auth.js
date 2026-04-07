@@ -14,6 +14,7 @@ router.post("/register", async (req, res) => {
     const statusCode = result.status === "error" ? 500 : 201;
     return res.status(statusCode).json(result);
 });
+// router.
 
 
 export default router;
