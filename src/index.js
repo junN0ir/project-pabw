@@ -11,7 +11,7 @@ app.get('/', (req, res) => {
     res.send("Welcome to the Hotel Room Booking API");
 });
 
-app.use('/auth', authRouter);
+app.use( authRouter);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

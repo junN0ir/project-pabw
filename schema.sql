@@ -56,8 +56,11 @@ CREATE TABLE `company_profile` (
   `phone_number` varchar(20) NOT NULL,
   `email` varchar(255) NOT NULL,
   `username` varchar(20) NOT NULL,
+  `id_admin` int DEFAULT NULL,
   PRIMARY KEY (`id_company_profile`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `email` (`email`),
+  KEY `fk_id_admin` (`id_admin`),
+  CONSTRAINT `fk_id_admin` FOREIGN KEY (`id_admin`) REFERENCES `admin` (`id_admin`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
