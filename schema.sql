@@ -50,14 +50,18 @@ DROP TABLE IF EXISTS `company_profile`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `company_profile` (
-  `id_company_profile` int NOT NULL AUTO_INCREMENT,
+  `id_company_profile` int NOT NULL,
   `company_name` varchar(255) NOT NULL,
   `address` varchar(255) NOT NULL,
   `phone_number` varchar(20) NOT NULL,
   `email` varchar(255) NOT NULL,
+  `username` varchar(20) NOT NULL,
+  `id_admin` int DEFAULT NULL,
   PRIMARY KEY (`id_company_profile`),
-  UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `email` (`email`),
+  KEY `fk_id_admin` (`id_admin`),
+  CONSTRAINT `fk_id_admin` FOREIGN KEY (`id_admin`) REFERENCES `admin` (`id_admin`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -66,7 +70,7 @@ CREATE TABLE `company_profile` (
 
 LOCK TABLES `company_profile` WRITE;
 /*!40000 ALTER TABLE `company_profile` DISABLE KEYS */;
-INSERT INTO `company_profile` VALUES (1,'Maju Jaya Hotel Group','Jl. Diponegoro No. 123, Jakarta Pusat','021-1234567','majujaya@hotelgroup.com'),(2,'Bintang Nusantara Hospitality','Jl. Ahmad Yani No. 456, Surabaya','031-2345678','bintangnusantara@hotelgroup.com'),(3,'Pesona Pantai Resort','Jl. Pantai Kuta, Bali','0361-3456789','pesonapantai@hotelgroup.com'),(4,'Pegunungan Indah Resort','Jl. Raya Bandung-Jakarta Km 50, Bandung','022-4567890','pegunungganindah@hotelgroup.com'),(5,'Kota Tua Heritage Hotels','Jl. Kota Tua No. 789, Jakarta Barat','021-5678901','kotatuaheritage@hotelgroup.com'),(6,'Tropis Sejahtera Hotel','Jl. Sudirman No. 321, Medan','061-6789012','tropissejahtera@hotelgroup.com');
+INSERT INTO `company_profile` VALUES (1,'Maju Jaya Hotel Group','Jl. Diponegoro No. 123, Jakarta Pusat','021-1234567','majujaya@hotelgroup.com','majujaya'),(2,'Bintang Nusantara Hospitality','Jl. Ahmad Yani No. 456, Surabaya','031-2345678','bintangnusantara@hotelgroup.com','bintang'),(3,'Pesona Pantai Resort','Jl. Pantai Kuta, Bali','0361-3456789','pesonapantai@hotelgroup.com','pesona'),(4,'Pegunungan Indah Resort','Jl. Raya Bandung-Jakarta Km 50, Bandung','022-4567890','pegunungganindah@hotelgroup.com','pegunungan'),(5,'Kota Tua Heritage Hotels','Jl. Kota Tua No. 789, Jakarta Barat','021-5678901','kotatuaheritage@hotelgroup.com','kotatua'),(6,'Tropis Sejahtera Hotel','Jl. Sudirman No. 321, Medan','061-6789012','tropissejahtera@hotelgroup.com','tropis');
 /*!40000 ALTER TABLE `company_profile` ENABLE KEYS */;
 UNLOCK TABLES;
 
