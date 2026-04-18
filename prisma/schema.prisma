@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id          Int    @id @default(autoincrement())
+  name        String
+  phoneNumber String
+  email       String @unique
+  password    String
+
+  companyProfiles CompanyProfile[]
+}
+
+model CompanyProfile {
+  id          Int    @id @default(autoincrement())
+  companyName String
+  address     String
+  phoneNumber String
+  email       String @unique
+  username    String
+  password    String
+
+  adminId Int?
+  admin   Admin? @relation(fields: [adminId], references: [id])
+
+  hotels    ListHotel[]
+  histories HistoryPurchase[]
+}
+
+model Customer {
+  id          Int    @id @default(autoincrement())
+  name        String
+  email       String @unique
+  password    String
+  phoneNumber String
+
+  histories  HistoryPurchase[]
+  activities ActivityLog[]
+}
+
+model DetailKamar {
+  id          Int    @id @default(autoincrement())
+  typeRoom    String
+  description String
+  facility    String
+  capacity    Int
+
+  rooms ListKamar[]
+}
+
+model ListHotel {
+  id            Int    @id @default(autoincrement())
+  hotelName     String
+  location      String
+  contactPerson String
+  contactEmail  String
+  contactPhone  String
+
+  companyId Int
+  company   CompanyProfile @relation(fields: [companyId], references: [id])
+
+  rooms ListKamar[]
+}
+
+model ListKamar {
+  id         Int        @id @default(autoincrement())
+  roomNumber String
+  price      Decimal    @db.Decimal(10, 2)
+  status     RoomStatus @default(AVAILABLE)
+
+  hotelId  Int
+  detailId Int
+
+  hotel  ListHotel   @relation(fields: [hotelId], references: [id])
+  detail DetailKamar @relation(fields: [detailId], references: [id])
+
+  histories HistoryPurchase[]
+}
+
+model HistoryPurchase {
+  id           Int               @id @default(autoincrement())
+  purchaseDate DateTime          @default(now())
+  checkinTime  DateTime
+  checkoutTime DateTime
+  amount       Decimal           @db.Decimal(10, 2)
+  status       TransactionStatus @default(CONFIRMED)
+
+  customerId Int
+  companyId  Int
+  roomId     Int
+
+  customer Customer       @relation(fields: [customerId], references: [id])
+  company  CompanyProfile @relation(fields: [companyId], references: [id])
+  room     ListKamar      @relation(fields: [roomId], references: [id])
+
+  @@index([customerId])
+  @@index([companyId])
+  @@index([roomId])
+}
+
+model SessionLogin {
+  id           Int         @id @default(autoincrement())
+  userId       Int
+  userType     UserType    @default(CUSTOMER)
+  status       LoginStatus @default(ACTIVE)
+  loginTime    DateTime    @default(now())
+  lastActivity DateTime    @default(now())
+  logoutTime   DateTime?
+}
+
+model ActivityLog {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  userType     UserType
+  activityType String
+  details      Json?
+  createdAt    DateTime @default(now())
+
+  customer Customer @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+enum UserType {
+  ADMIN
+  MITRA
+  CUSTOMER
+}
+
+enum LoginStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RoomStatus {
+  AVAILABLE
+  NOT_AVAILABLE
+}
+
+enum TransactionStatus {
+  CONFIRMED
+  CANCELLED
+}
