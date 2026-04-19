@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
 }
 
 model Admin {
@@ -41,7 +40,6 @@ model Customer {
   phoneNumber String
 
   histories  HistoryPurchase[]
-  activities ActivityLog[]
 }
 
 model DetailKamar {
@@ -112,19 +110,6 @@ model SessionLogin {
   loginTime    DateTime    @default(now())
   lastActivity DateTime    @default(now())
   logoutTime   DateTime?
-}
-
-model ActivityLog {
-  id           Int      @id @default(autoincrement())
-  userId       Int
-  userType     UserType
-  activityType String
-  details      Json?
-  createdAt    DateTime @default(now())
-
-  customer Customer @relation(fields: [userId], references: [id])
-
-  @@index([userId])
 }
 
 enum UserType {
