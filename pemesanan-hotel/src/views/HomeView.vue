@@ -438,7 +438,7 @@ onMounted(() => setTimeout(animateCounters, 900))
   50%       { transform: translateY(5px); }
 }
 
-/* CTA ghost — outline tipis, hover amber */
+/* CTA ghost  outline tipis, hover amber */
 .cta-ghost {
   display: inline-flex; align-items: center;
   padding: 1rem 2.2rem;

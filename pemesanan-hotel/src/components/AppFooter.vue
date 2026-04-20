@@ -53,7 +53,7 @@ const year = new Date().getFullYear()
 
 <style scoped>
 .footer {
-  background: linear-gradient(135deg, var(--primary-color), #0d3b72, var(--secondary-color));
+  background: var(--navy-900);
   color: white; padding: 3.5rem 0 1.5rem; margin-top: 4rem;
 }
 
@@ -62,19 +62,20 @@ const year = new Date().getFullYear()
   gap: 2.5rem; margin-bottom: 2rem;
 }
 
-.footer-section h3 { color: var(--accent-color); margin-bottom: 1rem; font-size: 1.3rem; }
-.footer-section h4 { margin-bottom: 1rem; color: rgba(255,255,255,0.9); }
-.footer-section p  { margin-bottom: 0.4rem; opacity: 0.85; font-size: 0.9rem; }
+.footer-brand h3 { color: var(--accent); margin-bottom: 1rem; font-size: 1.3rem; }
+.footer-brand p { margin-bottom: 0.4rem; opacity: 0.85; font-size: 0.9rem; }
 
-.footer-contact { margin-top: 0.8rem; }
+.footer-col h4 { margin-bottom: 1rem; color: rgba(255,255,255,0.9); }
 
-.footer-section a {
-  display: block; color: rgba(255,255,255,0.8);
+.footer-col a {
+  display: block; color: white;
   text-decoration: none; margin-bottom: 0.6rem; font-size: 0.9rem;
   transition: all 0.3s ease;
 }
 
-.footer-section a:hover { color: var(--accent-color); transform: translateX(6px); }
+.footer-col a:hover { color: var(--accent); transform: translateX(6px); }
+
+.footer-contact { margin-top: 0.8rem; }
 
 .footer-bottom {
   text-align: center; padding-top: 2rem;

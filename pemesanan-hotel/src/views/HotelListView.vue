@@ -81,7 +81,7 @@ function resetFilter() { filter.value = { city: '', stars: 0, sort: 'rating' } }
 .hotel-list-page { padding: 3rem 0; }
 
 .page-header { margin-bottom: 2rem; }
-.page-header h1 { font-size: 2rem; color: var(--primary-color); }
+.page-header h1 { font-size: 2rem; color: var(--primary); }
 .page-header p  { color: var(--text-light); }
 
 .filter-panel {
@@ -95,7 +95,7 @@ function resetFilter() { filter.value = { city: '', stars: 0, sort: 'rating' } }
 .filter-group label { font-weight: 600; color: var(--text-dark); font-size: 0.9rem; }
 
 .select-input {
-  padding: 10px 12px; border: 2px solid var(--border-color);
+  padding: 10px 12px; border: 2px solid var(--border);
   border-radius: 8px; font-size: 0.95rem; background: white; transition: all 0.3s ease;
 }
 

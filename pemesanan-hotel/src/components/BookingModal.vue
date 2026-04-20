@@ -239,7 +239,7 @@ onUnmounted(() => {
   position: relative;
   animation: modalSlideIn 0.4s cubic-bezier(0.68,-0.55,0.265,1.55);
   box-shadow: 0 20px 60px rgba(11,37,69,0.35);
-  border-top: 4px solid var(--accent-color);
+  border-top: 4px solid var(--accent);
 }
 
 @keyframes modalSlideIn {
@@ -260,12 +260,12 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 
-.close:hover { color: var(--accent-color); background: rgba(0,180,216,0.1); transform: rotate(90deg); }
+.close:hover { color: var(--accent); background: rgba(201,132,58,0.1); transform: rotate(90deg); }
 
-.modal-content h2 { color: var(--primary-color); margin-bottom: 1.5rem; text-align: center; }
+.modal-content h2 { color: var(--primary); margin-bottom: 1.5rem; text-align: center; }
 
 .modal-room-info {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  background: linear-gradient(135deg, var(--primary), var(--navy-700));
   color: white; padding: 1rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem;
 }
 
@@ -281,35 +281,35 @@ onUnmounted(() => {
 .form-group label { margin-bottom: 0.5rem; font-weight: 600; color: var(--text-dark); }
 
 .form-group input, .form-group select, .form-group textarea {
-  padding: 12px; border: 2px solid var(--border-color);
+  padding: 12px; border: 2px solid var(--border);
   border-radius: 8px; font-size: 1rem; font-family: inherit;
   transition: all 0.3s ease;
 }
 
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-  outline: none; border-color: var(--accent-color);
-  box-shadow: 0 0 0 4px rgba(0,180,216,0.12);
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(201,132,58,0.12);
   transform: translateY(-2px);
 }
 
 .price-summary {
-  background: linear-gradient(135deg, var(--bg-light), #dde6f0);
+  background: linear-gradient(135deg, var(--navy-50), #dde6f0);
   padding: 1.5rem; border-radius: 10px; margin-top: 1rem;
-  border-left: 4px solid var(--secondary-color);
+  border-left: 4px solid var(--navy-700);
 }
 
 .summary-row {
   display: flex; justify-content: space-between;
-  padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);
+  padding: 0.5rem 0; border-bottom: 1px solid var(--border);
 }
 
 .summary-row:last-child { border-bottom: none; }
-.discount-row { color: var(--success-color); font-weight: 600; }
+.discount-row { color: var(--success); font-weight: 600; }
 
 .total-row {
-  font-size: 1.3rem; font-weight: 700; color: var(--primary-color);
+  font-size: 1.3rem; font-weight: 700; color: var(--primary);
   margin-top: 0.5rem; padding-top: 1rem;
-  border-top: 2px solid var(--primary-color);
+  border-top: 2px solid var(--primary);
 }
 
 @media (max-width: 768px) {
@@ -324,9 +324,9 @@ onUnmounted(() => {
 
 .room-capacity-info {
   font-size: 0.78rem;
-  color: var(--accent-color);
-  background: rgba(0,180,216,0.08);
-  border: 1px solid rgba(0,180,216,0.2);
+  color: var(--accent);
+  background: rgba(201,132,58,0.08);
+  border: 1px solid rgba(201,132,58,0.2);
   padding: 5px 10px;
   border-radius: 6px;
   font-weight: 600;

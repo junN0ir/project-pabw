@@ -31,7 +31,7 @@
         <button type="submit" class="btn btn-primary btn-full" :disabled="loading">
           {{ loading ? 'Memproses...' : 'Masuk' }}
         </button>
-        <p class="demo-hint">💡 Demo: <strong>budi@email.com</strong> / <strong>password123</strong></p>
+        <p class="demo-hint">💡 Demo: <strong>customer@email.com</strong> / <strong>customer123</strong></p>
       </form>
 
       <!-- Register -->

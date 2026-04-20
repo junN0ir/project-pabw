@@ -65,7 +65,7 @@ const filteredRooms = computed(() =>
 .rooms-page { padding: 4rem 0; }
 
 .section-header { text-align: center; margin-bottom: 2rem; }
-.section-header h2 { font-size: 2.5rem; color: var(--primary-color); margin-bottom: 0.5rem; }
+.section-header h2 { font-size: 2.5rem; color: var(--primary); margin-bottom: 0.5rem; }
 .section-header p  { font-size: 1.1rem; color: var(--text-light); }
 
 .filter-bar {
@@ -76,14 +76,14 @@ const filteredRooms = computed(() =>
 .filter-bar label { font-weight: 600; color: var(--text-dark); }
 
 .select-input {
-  padding: 10px 16px; border: 2px solid var(--border-color);
+  padding: 10px 16px; border: 2px solid var(--border);
   border-radius: 8px; font-size: 1rem;
   transition: all 0.3s ease; background: white;
 }
 
 .select-input:focus {
-  outline: none; border-color: var(--accent-color);
-  box-shadow: 0 0 0 4px rgba(0,180,216,0.12);
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(201,132,58,0.12);
 }
 
 .rooms-grid {

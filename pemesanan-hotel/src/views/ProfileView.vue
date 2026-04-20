@@ -118,33 +118,33 @@ function formatDate(d) {
 
 .avatar-circle {
   width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 1rem;
-  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  background: linear-gradient(135deg, var(--primary), var(--accent));
   color: white; font-size: 2rem; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
 }
 
-.profile-sidebar h3 { color: var(--primary-color); font-size: 1.2rem; margin-bottom: 0.3rem; }
+.profile-sidebar h3 { color: var(--primary); font-size: 1.2rem; margin-bottom: 0.3rem; }
 .profile-sidebar p  { color: var(--text-light); font-size: 0.88rem; }
 .join-date { margin-top: 0.3rem; }
 
 .sidebar-menu { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.5rem; }
 
 .sidebar-menu button {
-  padding: 0.75rem 1rem; border: none; background: var(--bg-light);
+  padding: 0.75rem 1rem; border: none; background: var(--navy-50);
   border-radius: 10px; cursor: pointer; text-align: left;
   font-size: 0.95rem; color: var(--text-dark); font-weight: 600;
   transition: all 0.2s ease;
 }
 
-.sidebar-menu button:hover  { background: var(--bg-light); color: var(--accent-color); }
-.sidebar-menu button.active { background: var(--primary-color); color: white; }
+.sidebar-menu button:hover  { background: var(--navy-50); color: var(--accent); }
+.sidebar-menu button.active { background: var(--primary); color: white; }
 
 .content-card {
   background: white; border-radius: 16px; padding: 2rem; box-shadow: var(--shadow);
-  border-top: 4px solid var(--accent-color);
+  border-top: 4px solid var(--accent);
 }
 
-.content-card h2 { color: var(--primary-color); margin-bottom: 1.5rem; font-size: 1.4rem; }
+.content-card h2 { color: var(--primary); margin-bottom: 1.5rem; font-size: 1.4rem; }
 
 .profile-form { display: flex; flex-direction: column; gap: 1.2rem; }
 

@@ -76,7 +76,7 @@ const formatCurrency = (amount) =>
 
 .room-card:hover { transform: translateY(-12px) scale(1.02); box-shadow: 0 15px 40px rgba(11,37,69,0.2); }
 
-.room-card.featured { border: 3px solid var(--gold-color); box-shadow: 0 8px 25px rgba(201,168,76,0.25); }
+.room-card.featured { border: 3px solid var(--amber-500); box-shadow: 0 8px 25px rgba(201,132,58,0.25); }
 
 .room-image { position: relative; height: 220px; overflow: hidden; }
 
@@ -99,23 +99,23 @@ const formatCurrency = (amount) =>
   0%,100% { transform: scale(1); } 50% { transform: scale(1.07); }
 }
 
-.discount-badge.early-bird { background: linear-gradient(135deg, var(--accent-color), #0077b6); color: white; }
-.discount-badge.seasonal   { background: linear-gradient(135deg, var(--secondary-color), var(--primary-color)); color: white; }
-.discount-badge.loyalty    { background: linear-gradient(135deg, var(--gold-color), #a07830); color: white; }
-.featured-badge            { background: linear-gradient(135deg, var(--gold-color), #a07830); color: white; }
+.discount-badge.early-bird { background: linear-gradient(135deg, var(--accent), #0077b6); color: white; }
+.discount-badge.seasonal   { background: linear-gradient(135deg, var(--navy-700), var(--primary)); color: white; }
+.discount-badge.loyalty    { background: linear-gradient(135deg, var(--amber-500), #a07830); color: white; }
+.featured-badge            { background: linear-gradient(135deg, var(--amber-500), #a07830); color: white; }
 .unavailable-badge         { background: rgba(0,0,0,0.6); color: white; animation: none; }
 
 .room-content {
   padding: 1.3rem; display: flex; flex-direction: column; flex-grow: 1;
 }
 
-.room-content h3 { font-size: 1.4rem; color: var(--primary-color); margin-bottom: 0.7rem; }
+.room-content h3 { font-size: 1.4rem; color: var(--primary); margin-bottom: 0.7rem; }
 
 .room-price { margin-bottom: 0.8rem; }
 
 .price-amount {
   font-size: 1.7rem; font-weight: 700;
-  background: linear-gradient(135deg, var(--secondary-color), var(--accent-color));
+  background: linear-gradient(135deg, var(--navy-700), var(--accent));
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
 
@@ -133,7 +133,7 @@ const formatCurrency = (amount) =>
   transition: all 0.3s ease;
 }
 
-.room-amenities li:hover { transform: translateX(6px); color: var(--accent-color); }
+.room-amenities li:hover { transform: translateX(6px); color: var(--accent); }
 
 .book-btn { width: 100%; margin-top: auto; }
 

@@ -74,7 +74,7 @@ const formatCurrency = (amount) =>
 
 .hotel-body { padding: 1.3rem; display: flex; flex-direction: column; flex-grow: 1; }
 
-.hotel-body h3 { font-size: 1.3rem; color: var(--primary-color); margin-bottom: 0.3rem; }
+.hotel-body h3 { font-size: 1.3rem; color: var(--primary); margin-bottom: 0.3rem; }
 
 .hotel-address { color: var(--text-light); font-size: 0.82rem; margin-bottom: 0.6rem; }
 
@@ -83,15 +83,15 @@ const formatCurrency = (amount) =>
 .hotel-amenities { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
 
 .hotel-amenities span {
-  background: var(--bg-light); color: var(--text-dark);
+  background: var(--navy-50); color: var(--text-dark);
   padding: 3px 10px; border-radius: 20px; font-size: 0.78rem;
 }
 
-.hotel-footer { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid var(--border-color); padding-top: 0.8rem; }
+.hotel-footer { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid var(--border); padding-top: 0.8rem; }
 
 .hotel-rating { display: flex; align-items: center; gap: 0.3rem; }
 
-.rating-score { background: var(--primary-color); color: white; font-weight: 700; font-size: 0.85rem; padding: 2px 8px; border-radius: 6px; }
+.rating-score { background: var(--primary); color: white; font-weight: 700; font-size: 0.85rem; padding: 2px 8px; border-radius: 6px; }
 
 .rating-stars { color: #f4c430; font-size: 0.75rem; }
 
@@ -103,7 +103,7 @@ const formatCurrency = (amount) =>
 
 .price-value {
   font-size: 1.1rem; font-weight: 700;
-  background: linear-gradient(135deg, var(--secondary-color), var(--accent-color));
+  background: linear-gradient(135deg, var(--navy-700), var(--accent));
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
 
