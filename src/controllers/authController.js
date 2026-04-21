@@ -1,10 +1,10 @@
-import prisma from "../config/prisma.js";
+import db from "../config/db.js";
 import { logActivity } from "../services/activityService.js";
 
 // pengganti trigger register
 export const register = async (req, res) => {
   try {
-    const { name, email, password, phoneNumber } = req.body;
+    const { name, email, password, phone_number } = req.body;
 
     // Validasi wajib
     if (!name || name.trim() === "") {
@@ -13,52 +13,50 @@ export const register = async (req, res) => {
     if (!password || password.trim() === "") {
       return res.status(400).json({ message: "Password wajib diisi." });
     }
-
-    // Normalisasi email (lowercase, trim, null jika kosong)
-    const emailNormalized = email && email.trim() !== "" ? email.toLowerCase().trim() : null;
-
-    // Email unik (jika diisi)
-    if (emailNormalized) {
-      const existingUser = await prisma.Customer.findUnique({
-        where: { email: emailNormalized }
-      });
-
-      if (existingUser) {
-        return res.status(409).json({ message: "Email sudah terdaftar." });
-      }
+    if (!email || email.trim() === "") {
+      return res.status(400).json({ message: "Email wajib diisi." });
     }
 
-    // Insert customer
-    const user = await prisma.Customer.create({
-      data: {
-        name: name.trim(),
-        email: emailNormalized,
-        password,
-        phoneNumber: phoneNumber || ""
-      }
-    });
+    // Normalisasi email
+    const emailNormalized = email.toLowerCase().trim();
+
+    // Email unik - cek di tabel user
+    const [existing] = await db.execute(
+      `SELECT id_user FROM user WHERE email = ?`,
+      [emailNormalized]
+    );
+
+    if (existing.length > 0) {
+      return res.status(409).json({ message: "Email sudah terdaftar." });
+    }
+
+    // Insert ke tabel user dengan role customer
+    const [result] = await db.execute(
+      `INSERT INTO user (name, email, password, phone_number, role) VALUES (?, ?, ?, ?, ?)`,
+      [name.trim(), emailNormalized, password, phone_number || "", "customer"]
+    );
+
+    const userId = result.insertId;
 
     await logActivity({
-      userId: user.id,
+      userId,
       userType: "CUSTOMER",
       activityType: "REGISTER",
       details: {
-        email: user.email,
-        name: user.name,
-        phoneNumber: user.phoneNumber
+        email: emailNormalized,
+        name: name.trim(),
+        phone_number: phone_number || ""
       }
     });
 
     res.json({
       message: "Register berhasil",
       data: {
-        id: user.id,
-        nama: user.name,
-        email: user.email,
-        password: user.password,
-        userType: "customer",
-        alamat: "",
-        nomor_telepon: user.phoneNumber
+        id: userId,
+        nama: name.trim(),
+        email: emailNormalized,
+        role: "customer",
+        phone_number: phone_number || ""
       }
     });
 
@@ -67,14 +65,14 @@ export const register = async (req, res) => {
   }
 };
 
-// pengganti trigger login
+// pengganti trigger login (support identifier: email atau mitra ID)
 export const login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
 
     // Validasi input
     if (!identifier || identifier.trim() === "") {
-      return res.status(400).json({ message: "Email atau ID Mitra wajib diisi." });
+      return res.status(400).json({ message: "Email atau Mitra ID wajib diisi." });
     }
     if (!password || password.trim() === "") {
       return res.status(400).json({ message: "Password wajib diisi." });
@@ -88,14 +86,16 @@ export const login = async (req, res) => {
     if (isNumeric) {
       // LOGIN SEBAGAI MITRA
       const mitraId = parseInt(identifier, 10);
-      const mitra = await prisma.CompanyProfile.findUnique({
-        where: { id: mitraId }
-      });
+      const [mitraRows] = await db.execute(
+        `SELECT * FROM company_profile WHERE id_company_profile = ?`,
+        [mitraId]
+      );
 
-      // Jika ID Mitra tidak ditemukan
-      if (!mitra) {
+      if (mitraRows.length === 0) {
         return res.status(401).json({ message: "Mitra tidak terdaftar." });
       }
+
+      const mitra = mitraRows[0];
 
       // Validasi password
       if (mitra.password !== password) {
@@ -103,25 +103,29 @@ export const login = async (req, res) => {
       }
 
       user = {
-        id: mitra.id,
-        nama: mitra.companyName,
-        user_type: "mitra",
+        id: mitra.id_company_profile,
+        nama: mitra.company_name,
+        role: "mitra",
         email: mitra.email,
         alamat: mitra.address,
-        nomor_telepon: mitra.phoneNumber
+        phone_number: mitra.phone_number
       };
       userType = "MITRA";
 
     } else {
       // LOGIN SEBAGAI CUSTOMER
-      const customer = await prisma.Customer.findUnique({
-        where: { email: identifier.toLowerCase().trim() }
-      });
+      const emailNormalized = identifier.toLowerCase().trim();
 
-      // Jika email tidak ditemukan
-      if (!customer) {
-        return res.status(401).json({ message: "Email tidak terdaftar." });
+      const [customerRows] = await db.execute(
+        `SELECT id_user, name, email, password, phone_number, role FROM user WHERE email = ? AND role = 'customer'`,
+        [emailNormalized]
+      );
+
+      if (customerRows.length === 0) {
+        return res.status(401).json({ message: "Email tidak terdaftar atau bukan customer." });
       }
+
+      const customer = customerRows[0];
 
       // Validasi password
       if (customer.password !== password) {
@@ -129,23 +133,23 @@ export const login = async (req, res) => {
       }
 
       user = {
-        id: customer.id,
+        id: customer.id_user,
         nama: customer.name,
-        user_type: "customer",
+        role: "customer",
         email: customer.email,
-        alamat: customer.phoneNumber
+        phone_number: customer.phone_number
       };
       userType = "CUSTOMER";
     }
 
     await logActivity({
       userId: user.id,
-      userType: userType,
+      userType,
       activityType: "LOGIN",
       details: {
         email: user.email,
         nama: user.nama,
-        userType: user.user_type
+        role: user.role
       }
     });
 
@@ -159,82 +163,23 @@ export const login = async (req, res) => {
   }
 };
 
-// GET semua session login
-export const getAllSessions = async (req, res) => {
-  try {
-    const { status, userType, limit = 10, offset = 0 } = req.query;
-
-    const where = {};
-    if (status) where.status = status.toUpperCase();
-    if (userType) where.userType = userType.toUpperCase();
-
-    const sessions = await prisma.SessionLogin.findMany({
-      where,
-      take: parseInt(limit),
-      skip: parseInt(offset),
-      orderBy: { loginTime: "desc" }
-    });
-
-    const total = await prisma.SessionLogin.count({ where });
-
-    res.json({
-      message: "Data session login berhasil diambil",
-      data: sessions,
-      pagination: {
-        total,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
-      }
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// GET session berdasarkan ID
-export const getSessionById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const session = await prisma.SessionLogin.findUnique({
-      where: { id: parseInt(id) }
-    });
-
-    if (!session) {
-      return res.status(404).json({ message: "Session login tidak ditemukan." });
-    }
-
-    res.json({
-      message: "Data session login berhasil diambil",
-      data: session
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// GET session berdasarkan userId
+// GET session login berdasarkan userId
 export const getSessionByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const session = await prisma.SessionLogin.findFirst({
-      where: { 
-        userId: parseInt(userId),
-        status: "ACTIVE"
-      },
-      orderBy: { loginTime: "desc" }
-    });
+    const [rows] = await db.execute(
+      `SELECT * FROM session_login WHERE id_user = ? AND status = 'active' ORDER BY login_time DESC LIMIT 1`,
+      [parseInt(userId)]
+    );
 
-    if (!session) {
+    if (rows.length === 0) {
       return res.status(404).json({ message: "Session login tidak ditemukan untuk user ini." });
     }
 
     res.json({
       message: "Data session login berhasil diambil",
-      data: session
+      data: rows[0]
     });
 
   } catch (error) {
@@ -245,19 +190,25 @@ export const getSessionByUserId = async (req, res) => {
 // GET active sessions
 export const getActiveSessions = async (req, res) => {
   try {
-    const { userType, limit = 10, offset = 0 } = req.query;
+    const { user_type, limit = 10, offset = 0 } = req.query;
 
-    const where = { status: "ACTIVE" };
-    if (userType) where.userType = userType.toUpperCase();
+    let where = "WHERE status = 'active'";
+    const params = [];
 
-    const sessions = await prisma.SessionLogin.findMany({
-      where,
-      take: parseInt(limit),
-      skip: parseInt(offset),
-      orderBy: { lastActivity: "desc" }
-    });
+    if (user_type) {
+      where += " AND user_type = ?";
+      params.push(user_type.toLowerCase());
+    }
 
-    const total = await prisma.SessionLogin.count({ where });
+    const [sessions] = await db.execute(
+      `SELECT * FROM session_login ${where} ORDER BY last_activity DESC LIMIT ? OFFSET ?`,
+      [...params, parseInt(limit), parseInt(offset)]
+    );
+
+    const [[{ total }]] = await db.execute(
+      `SELECT COUNT(*) as total FROM session_login ${where}`,
+      params
+    );
 
     res.json({
       message: "Data active session login berhasil diambil",
@@ -274,25 +225,31 @@ export const getActiveSessions = async (req, res) => {
   }
 };
 
-// GET semua session history (termasuk yang sudah logout)
+// GET semua session history
 export const getAllSessionsHistory = async (req, res) => {
   try {
-    const { userType, limit = 10, offset = 0 } = req.query;
+    const { user_type, limit = 10, offset = 0 } = req.query;
 
-    const where = {};
-    if (userType) where.userType = userType.toUpperCase();
+    let where = "WHERE 1=1";
+    const params = [];
 
-    const sessions = await prisma.SessionLogin.findMany({
-      where,
-      take: parseInt(limit),
-      skip: parseInt(offset),
-      orderBy: { loginTime: "desc" }
-    });
+    if (user_type) {
+      where += " AND user_type = ?";
+      params.push(user_type.toLowerCase());
+    }
 
-    const total = await prisma.SessionLogin.count({ where });
+    const [sessions] = await db.execute(
+      `SELECT * FROM session_login ${where} ORDER BY login_time DESC LIMIT ? OFFSET ?`,
+      [...params, parseInt(limit), parseInt(offset)]
+    );
+
+    const [[{ total }]] = await db.execute(
+      `SELECT COUNT(*) as total FROM session_login ${where}`,
+      params
+    );
 
     res.json({
-      message: "Data semua session login (termasuk logout) berhasil diambil",
+      message: "Data semua session login berhasil diambil",
       data: sessions,
       pagination: {
         total,
@@ -312,58 +269,66 @@ export const getCustomerReservationHistory = async (req, res) => {
     const { customerId } = req.params;
     const { status, limit = 10, offset = 0 } = req.query;
 
-    // Validasi customerId
     if (!customerId) {
       return res.status(400).json({ message: "Customer ID wajib diisi." });
     }
 
     // Cek customer ada atau tidak
-    const customer = await prisma.Customer.findUnique({
-      where: { id: parseInt(customerId) }
-    });
+    const [customerRows] = await db.execute(
+      `SELECT id_customer FROM customer WHERE id_customer = ?`,
+      [parseInt(customerId)]
+    );
 
-    if (!customer) {
+    if (customerRows.length === 0) {
       return res.status(404).json({ message: "Customer tidak ditemukan." });
     }
 
-    // Build query filter
-    const where = { customerId: parseInt(customerId) };
-    if (status) where.status = status.toUpperCase();
+    let where = "WHERE hp.id_customer = ?";
+    const params = [parseInt(customerId)];
 
-    // Get reservation history dengan detail
-    const reservations = await prisma.HistoryPurchase.findMany({
-      where,
-      include: {
-        room: {
-          include: {
-            hotel: true,
-            detail: true
-          }
-        },
-        company: true
-      },
-      take: parseInt(limit),
-      skip: parseInt(offset),
-      orderBy: { purchaseDate: "desc" }
-    });
+    if (status) {
+      where += " AND hp.status = ?";
+      params.push(status.toLowerCase());
+    }
 
-    const total = await prisma.HistoryPurchase.count({ where });
+    const [reservations] = await db.execute(
+      `SELECT 
+        hp.id_history, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
+        lk.room_number,
+        lh.hotel_name, lh.location,
+        dk.type_room, dk.capacity,
+        cp.company_name
+      FROM history_purchase hp
+      JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
+      JOIN company_profile cp ON hp.id_company_profile = cp.id_company_profile
+      ${where}
+      ORDER BY hp.purchase_date DESC
+      LIMIT ? OFFSET ?`,
+      [...params, parseInt(limit), parseInt(offset)]
+    );
+
+    const [[{ total }]] = await db.execute(
+      `SELECT COUNT(*) as total FROM history_purchase hp ${where}`,
+      params
+    );
 
     res.json({
       message: "Histori reservasi berhasil diambil",
-      data: reservations.map(reservation => ({
-        id: reservation.id,
-        purchaseDate: reservation.purchaseDate,
-        checkinTime: reservation.checkinTime,
-        checkoutTime: reservation.checkoutTime,
-        amount: reservation.amount,
-        status: reservation.status,
-        roomNumber: reservation.room.roomNumber,
-        hotelName: reservation.room.hotel.hotelName,
-        roomType: reservation.room.detail.typeRoom,
-        capacity: reservation.room.detail.capacity,
-        hotelLocation: reservation.room.hotel.location,
-        companyName: reservation.company.companyName
+      data: reservations.map(r => ({
+        id: r.id_history,
+        purchaseDate: r.purchase_date,
+        checkinTime: r.checkin_time,
+        checkoutTime: r.checkout_time,
+        amount: r.amount,
+        status: r.status,
+        roomNumber: r.room_number,
+        hotelName: r.hotel_name,
+        roomType: r.type_room,
+        capacity: r.capacity,
+        hotelLocation: r.location,
+        companyName: r.company_name
       })),
       pagination: {
         total,
@@ -382,67 +347,68 @@ export const getReservationDetail = async (req, res) => {
   try {
     const { customerId, reservationId } = req.params;
 
-    // Validasi parameter
     if (!customerId || !reservationId) {
       return res.status(400).json({ message: "Customer ID dan Reservation ID wajib diisi." });
     }
 
-    // Get reservation dengan validasi customer
-    const reservation = await prisma.HistoryPurchase.findFirst({
-      where: {
-        id: parseInt(reservationId),
-        customerId: parseInt(customerId)
-      },
-      include: {
-        room: {
-          include: {
-            hotel: true,
-            detail: true
-          }
-        },
-        company: true,
-        customer: true
-      }
-    });
+    const [rows] = await db.execute(
+      `SELECT 
+        hp.id, hp.purchaseDate, hp.checkinTime, hp.checkoutTime, hp.amount, hp.status,
+        c.id AS customerId, c.name AS customerName, c.email AS customerEmail, c.phoneNumber AS customerPhone,
+        lk.roomNumber, lk.price AS roomPrice,
+        dk.typeRoom, dk.facility, dk.capacity,
+        lh.hotelName, lh.location AS hotelLocation, lh.contactPerson, lh.contactEmail, lh.contactPhone,
+        cp.companyName, cp.email AS companyEmail, cp.address AS companyAddress, cp.phoneNumber AS companyPhone
+      FROM HistoryPurchase hp
+      JOIN Customer c ON hp.customerId = c.id
+      JOIN ListKamar lk ON hp.roomId = lk.id
+      JOIN DetailKamar dk ON lk.detailId = dk.id
+      JOIN ListHotel lh ON lk.hotelId = lh.id
+      JOIN CompanyProfile cp ON hp.companyId = cp.id
+      WHERE hp.id = ? AND hp.customerId = ?`,
+      [parseInt(reservationId), parseInt(customerId)]
+    );
 
-    if (!reservation) {
+    if (rows.length === 0) {
       return res.status(404).json({ message: "Reservasi tidak ditemukan." });
     }
+
+    const r = rows[0];
 
     res.json({
       message: "Detail reservasi berhasil diambil",
       data: {
-        id: reservation.id,
-        purchaseDate: reservation.purchaseDate,
-        checkinTime: reservation.checkinTime,
-        checkoutTime: reservation.checkoutTime,
-        amount: reservation.amount,
-        status: reservation.status,
+        id: r.id,
+        purchaseDate: r.purchaseDate,
+        checkinTime: r.checkinTime,
+        checkoutTime: r.checkoutTime,
+        amount: r.amount,
+        status: r.status,
         customer: {
-          id: reservation.customer.id,
-          nama: reservation.customer.name,
-          email: reservation.customer.email,
-          nomor_telepon: reservation.customer.phoneNumber
+          id: r.customerId,
+          nama: r.customerName,
+          email: r.customerEmail,
+          nomor_telepon: r.customerPhone
         },
         room: {
-          number: reservation.room.roomNumber,
-          type: reservation.room.detail.typeRoom,
-          facility: reservation.room.detail.facility,
-          capacity: reservation.room.detail.capacity,
-          price: reservation.room.price
+          number: r.roomNumber,
+          type: r.typeRoom,
+          facility: r.facility,
+          capacity: r.capacity,
+          price: r.roomPrice
         },
         hotel: {
-          nama: reservation.room.hotel.hotelName,
-          location: reservation.room.hotel.location,
-          contactPerson: reservation.room.hotel.contactPerson,
-          contactEmail: reservation.room.hotel.contactEmail,
-          contactPhone: reservation.room.hotel.contactPhone
+          nama: r.hotelName,
+          location: r.hotelLocation,
+          contactPerson: r.contactPerson,
+          contactEmail: r.contactEmail,
+          contactPhone: r.contactPhone
         },
         company: {
-          nama: reservation.company.companyName,
-          email: reservation.company.email,
-          alamat: reservation.company.address,
-          nomor_telepon: reservation.company.phoneNumber
+          nama: r.companyName,
+          email: r.companyEmail,
+          alamat: r.companyAddress,
+          nomor_telepon: r.companyPhone
         }
       }
     });
@@ -461,31 +427,34 @@ export const getReservationStats = async (req, res) => {
       return res.status(400).json({ message: "Customer ID wajib diisi." });
     }
 
-    // Cek customer ada atau tidak
-    const customer = await prisma.Customer.findUnique({
-      where: { id: parseInt(customerId) }
-    });
+    const [customerRows] = await db.execute(
+      `SELECT id FROM Customer WHERE id = ?`,
+      [parseInt(customerId)]
+    );
 
-    if (!customer) {
+    if (customerRows.length === 0) {
       return res.status(404).json({ message: "Customer tidak ditemukan." });
     }
 
-    // Ambil semua reservasi
-    const allReservations = await prisma.HistoryPurchase.findMany({
-      where: { customerId: parseInt(customerId) }
-    });
-
-    // Hitung statistik
-    const stats = {
-      totalReservasi: allReservations.length,
-      totalBiaya: allReservations.reduce((sum, r) => sum + parseFloat(r.amount), 0),
-      confirmed: allReservations.filter(r => r.status === "CONFIRMED").length,
-      cancelled: allReservations.filter(r => r.status === "CANCELLED").length
-    };
+    const [[stats]] = await db.execute(
+      `SELECT
+        COUNT(*) AS totalReservasi,
+        COALESCE(SUM(amount), 0) AS totalBiaya,
+        SUM(CASE WHEN status = 'CONFIRMED' THEN 1 ELSE 0 END) AS confirmed,
+        SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelled
+      FROM HistoryPurchase
+      WHERE customerId = ?`,
+      [parseInt(customerId)]
+    );
 
     res.json({
       message: "Statistik reservasi berhasil diambil",
-      data: stats
+      data: {
+        totalReservasi: stats.totalReservasi,
+        totalBiaya: parseFloat(stats.totalBiaya),
+        confirmed: stats.confirmed,
+        cancelled: stats.cancelled
+      }
     });
 
   } catch (error) {
@@ -499,59 +468,66 @@ export const getMitraReservationHistory = async (req, res) => {
     const { mitraId } = req.params;
     const { status, limit = 10, offset = 0 } = req.query;
 
-    // Validasi mitraId
     if (!mitraId) {
       return res.status(400).json({ message: "Mitra ID wajib diisi." });
     }
 
-    // Cek mitra ada atau tidak
-    const mitra = await prisma.CompanyProfile.findUnique({
-      where: { id: parseInt(mitraId) }
-    });
+    const [mitraRows] = await db.execute(
+      `SELECT id FROM CompanyProfile WHERE id = ?`,
+      [parseInt(mitraId)]
+    );
 
-    if (!mitra) {
+    if (mitraRows.length === 0) {
       return res.status(404).json({ message: "Mitra tidak ditemukan." });
     }
 
-    // Build query filter
-    const where = { companyId: parseInt(mitraId) };
-    if (status) where.status = status.toUpperCase();
+    let where = "WHERE hp.companyId = ?";
+    const params = [parseInt(mitraId)];
 
-    // Get reservation history dengan detail
-    const reservations = await prisma.HistoryPurchase.findMany({
-      where,
-      include: {
-        room: {
-          include: {
-            hotel: true,
-            detail: true
-          }
-        },
-        customer: true
-      },
-      take: parseInt(limit),
-      skip: parseInt(offset),
-      orderBy: { purchaseDate: "desc" }
-    });
+    if (status) {
+      where += " AND hp.status = ?";
+      params.push(status.toUpperCase());
+    }
 
-    const total = await prisma.HistoryPurchase.count({ where });
+    const [reservations] = await db.execute(
+      `SELECT 
+        hp.id, hp.purchaseDate, hp.checkinTime, hp.checkoutTime, hp.amount, hp.status,
+        lk.roomNumber,
+        lh.hotelName, lh.location AS hotelLocation,
+        dk.typeRoom, dk.capacity,
+        c.name AS customerName, c.email AS customerEmail
+      FROM HistoryPurchase hp
+      JOIN ListKamar lk ON hp.roomId = lk.id
+      JOIN ListHotel lh ON lk.hotelId = lh.id
+      JOIN DetailKamar dk ON lk.detailId = dk.id
+      JOIN Customer c ON hp.customerId = c.id
+      ${where}
+      ORDER BY hp.purchaseDate DESC
+      LIMIT ? OFFSET ?`,
+      [...params, parseInt(limit), parseInt(offset)]
+    );
+
+    const [[{ total }]] = await db.execute(
+      `SELECT COUNT(*) as total FROM HistoryPurchase hp ${where}`,
+      params
+    );
 
     res.json({
       message: "Histori reservasi mitra berhasil diambil",
-      data: reservations.map(reservation => ({
-        id: reservation.id,
-        purchaseDate: reservation.purchaseDate,
-        checkinTime: reservation.checkinTime,
-        checkoutTime: reservation.checkoutTime,
-        amount: reservation.amount,
-        status: reservation.status,
-        roomNumber: reservation.room.roomNumber,
-        hotelName: reservation.room.hotel.hotelName,
-        roomType: reservation.room.detail.typeRoom,
-        capacity: reservation.room.detail.capacity,
-        hotelLocation: reservation.room.hotel.location,
-        customerName: reservation.customer.name,
-        customerEmail: reservation.customer.email
+      data: reservations.map(r => ({
+        id: r.id,
+        purchaseDate: r.purchaseDate,
+        checkinTime: r.checkinTime,
+        checkoutTime: r.checkoutTime,
+        amount: r.amount,
+        status: r.status,
+        roomNumber: r.roomNumber,
+        hotelName: r.hotelName,
+        roomType: r.typeRoom,
+        capacity: r.capacity,
+        hotelLocation: r.hotelLocation,
+        customerName: r.customerName,
+        customerEmail: r.customerEmail
       })),
       pagination: {
         total,
@@ -570,49 +546,64 @@ export const getAllReservations = async (req, res) => {
   try {
     const { status, customerId, mitraId, limit = 10, offset = 0 } = req.query;
 
-    // Build query filter
-    const where = {};
-    if (status) where.status = status.toUpperCase();
-    if (customerId) where.customerId = parseInt(customerId);
-    if (mitraId) where.companyId = parseInt(mitraId);
+    let where = "WHERE 1=1";
+    const params = [];
 
-    // Get all reservations dengan detail
-    const reservations = await prisma.HistoryPurchase.findMany({
-      where,
-      include: {
-        room: {
-          include: {
-            hotel: true,
-            detail: true
-          }
-        },
-        customer: true,
-        company: true
-      },
-      take: parseInt(limit),
-      skip: parseInt(offset),
-      orderBy: { purchaseDate: "desc" }
-    });
+    if (status) {
+      where += " AND hp.status = ?";
+      params.push(status.toUpperCase());
+    }
+    if (customerId) {
+      where += " AND hp.customerId = ?";
+      params.push(parseInt(customerId));
+    }
+    if (mitraId) {
+      where += " AND hp.companyId = ?";
+      params.push(parseInt(mitraId));
+    }
 
-    const total = await prisma.HistoryPurchase.count({ where });
+    const [reservations] = await db.execute(
+      `SELECT 
+        hp.id, hp.purchaseDate, hp.checkinTime, hp.checkoutTime, hp.amount, hp.status,
+        lk.roomNumber,
+        lh.hotelName, lh.location AS hotelLocation,
+        dk.typeRoom,
+        c.name AS customerName, c.email AS customerEmail,
+        cp.companyName AS mitraName, cp.email AS mitraEmail
+      FROM HistoryPurchase hp
+      JOIN ListKamar lk ON hp.roomId = lk.id
+      JOIN ListHotel lh ON lk.hotelId = lh.id
+      JOIN DetailKamar dk ON lk.detailId = dk.id
+      JOIN Customer c ON hp.customerId = c.id
+      JOIN CompanyProfile cp ON hp.companyId = cp.id
+      ${where}
+      ORDER BY hp.purchaseDate DESC
+      LIMIT ? OFFSET ?`,
+      [...params, parseInt(limit), parseInt(offset)]
+    );
+
+    const [[{ total }]] = await db.execute(
+      `SELECT COUNT(*) as total FROM HistoryPurchase hp ${where}`,
+      params
+    );
 
     res.json({
       message: "Semua reservasi berhasil diambil",
-      data: reservations.map(reservation => ({
-        id: reservation.id,
-        purchaseDate: reservation.purchaseDate,
-        checkinTime: reservation.checkinTime,
-        checkoutTime: reservation.checkoutTime,
-        amount: reservation.amount,
-        status: reservation.status,
-        roomNumber: reservation.room.roomNumber,
-        hotelName: reservation.room.hotel.hotelName,
-        roomType: reservation.room.detail.typeRoom,
-        hotelLocation: reservation.room.hotel.location,
-        customerName: reservation.customer.name,
-        customerEmail: reservation.customer.email,
-        mitraName: reservation.company.companyName,
-        mitraEmail: reservation.company.email
+      data: reservations.map(r => ({
+        id: r.id,
+        purchaseDate: r.purchaseDate,
+        checkinTime: r.checkinTime,
+        checkoutTime: r.checkoutTime,
+        amount: r.amount,
+        status: r.status,
+        roomNumber: r.roomNumber,
+        hotelName: r.hotelName,
+        roomType: r.typeRoom,
+        hotelLocation: r.hotelLocation,
+        customerName: r.customerName,
+        customerEmail: r.customerEmail,
+        mitraName: r.mitraName,
+        mitraEmail: r.mitraEmail
       })),
       pagination: {
         total,
@@ -646,49 +637,55 @@ export const createRoom = async (req, res) => {
     }
 
     // Cek hotel ada atau tidak
-    const hotel = await prisma.ListHotel.findUnique({
-      where: { id: parseInt(hotelId) }
-    });
+    const [hotelRows] = await db.execute(
+      `SELECT id FROM ListHotel WHERE id = ?`,
+      [parseInt(hotelId)]
+    );
 
-    if (!hotel) {
+    if (hotelRows.length === 0) {
       return res.status(404).json({ message: "Hotel tidak ditemukan." });
     }
 
     // Cek detail kamar ada atau tidak
-    const detail = await prisma.DetailKamar.findUnique({
-      where: { id: parseInt(detailId) }
-    });
+    const [detailRows] = await db.execute(
+      `SELECT id FROM DetailKamar WHERE id = ?`,
+      [parseInt(detailId)]
+    );
 
-    if (!detail) {
+    if (detailRows.length === 0) {
       return res.status(404).json({ message: "Detail kamar tidak ditemukan." });
     }
 
     // Cek duplikasi nomor kamar di hotel yang sama
-    const existingRoom = await prisma.ListKamar.findFirst({
-      where: {
-        roomNumber: roomNumber.trim(),
-        hotelId: parseInt(hotelId)
-      }
-    });
+    const [existingRows] = await db.execute(
+      `SELECT id FROM ListKamar WHERE roomNumber = ? AND hotelId = ?`,
+      [roomNumber.trim(), parseInt(hotelId)]
+    );
 
-    if (existingRoom) {
+    if (existingRows.length > 0) {
       return res.status(409).json({ message: "Nomor kamar sudah ada di hotel ini." });
     }
 
     // Create kamar baru
-    const room = await prisma.ListKamar.create({
-      data: {
-        roomNumber: roomNumber.trim(),
-        price: parseFloat(price),
-        status: status?.toUpperCase() || "AVAILABLE",
-        hotelId: parseInt(hotelId),
-        detailId: parseInt(detailId)
-      },
-      include: {
-        hotel: true,
-        detail: true
-      }
-    });
+    const [result] = await db.execute(
+      `INSERT INTO ListKamar (roomNumber, price, status, hotelId, detailId) VALUES (?, ?, ?, ?, ?)`,
+      [roomNumber.trim(), parseFloat(price), status?.toUpperCase() || "AVAILABLE", parseInt(hotelId), parseInt(detailId)]
+    );
+
+    const newRoomId = result.insertId;
+
+    const [roomRows] = await db.execute(
+      `SELECT lk.id, lk.roomNumber, lk.price, lk.status,
+        lh.hotelName,
+        dk.typeRoom, dk.facility, dk.capacity
+      FROM ListKamar lk
+      JOIN ListHotel lh ON lk.hotelId = lh.id
+      JOIN DetailKamar dk ON lk.detailId = dk.id
+      WHERE lk.id = ?`,
+      [newRoomId]
+    );
+
+    const room = roomRows[0];
 
     res.status(201).json({
       message: "Kamar berhasil ditambahkan",
@@ -697,10 +694,10 @@ export const createRoom = async (req, res) => {
         roomNumber: room.roomNumber,
         price: room.price,
         status: room.status,
-        hotelName: room.hotel.hotelName,
-        roomType: room.detail.typeRoom,
-        facility: room.detail.facility,
-        capacity: room.detail.capacity
+        hotelName: room.hotelName,
+        roomType: room.typeRoom,
+        facility: room.facility,
+        capacity: room.capacity
       }
     });
 

@@ -1,20 +1,11 @@
-import prisma from "../config/prisma.js";
+import db from "../config/db.js";
 
-export const logActivity = async ({
-  userId,
-  userType,
-  activityType,
-  details
-}) => {
+export const logActivity = async ({ userId, userType, activityType, details }) => {
   try {
-    await prisma.ActivityLog.create({
-      data: {
-        userId,
-        userType,
-        activityType,
-        details
-      }
-    });
+    await db.execute(
+      `INSERT INTO ActivityLog (userId, userType, activityType, details) VALUES (?, ?, ?, ?)`,
+      [userId, userType, activityType, JSON.stringify(details)]
+    );
   } catch (error) {
     console.error("Gagal log activity:", error);
   }

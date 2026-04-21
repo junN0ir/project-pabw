@@ -14,7 +14,7 @@ app.get("/", (req, res) => {
   res.send("Working");
 });
 
-app.use("/api/auth", authRoutes);
+app.use(authRoutes);
 
 const PORT = process.env.PORT || 3000;
 
