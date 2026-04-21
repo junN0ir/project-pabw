@@ -21,7 +21,7 @@ export const register = async (req, res) => {
     const emailNormalized = email.toLowerCase().trim();
 
     // Email unik - cek di tabel user
-    const [existing] = await db.execute(
+    const [existing] = await db.query(
       `SELECT id_user FROM user WHERE email = ?`,
       [emailNormalized]
     );
@@ -31,7 +31,7 @@ export const register = async (req, res) => {
     }
 
     // Insert ke tabel user dengan role customer
-    const [result] = await db.execute(
+    const [result] = await db.query(
       `INSERT INTO user (name, email, password, phone_number, role) VALUES (?, ?, ?, ?, ?)`,
       [name.trim(), emailNormalized, password, phone_number || "", "customer"]
     );
@@ -85,10 +85,10 @@ export const login = async (req, res) => {
 
     if (isNumeric) {
       // LOGIN SEBAGAI MITRA
-      const mitraId = parseInt(identifier, 10);
-      const [mitraRows] = await db.execute(
+      const id_company_profile = parseInt(identifier, 10);
+      const [mitraRows] = await db.query(
         `SELECT * FROM company_profile WHERE id_company_profile = ?`,
-        [mitraId]
+        [id_company_profile]
       );
 
       if (mitraRows.length === 0) {
@@ -97,7 +97,6 @@ export const login = async (req, res) => {
 
       const mitra = mitraRows[0];
 
-      // Validasi password
       if (mitra.password !== password) {
         return res.status(401).json({ message: "Password salah." });
       }
@@ -116,7 +115,7 @@ export const login = async (req, res) => {
       // LOGIN SEBAGAI CUSTOMER
       const emailNormalized = identifier.toLowerCase().trim();
 
-      const [customerRows] = await db.execute(
+      const [customerRows] = await db.query(
         `SELECT id_user, name, email, password, phone_number, role FROM user WHERE email = ? AND role = 'customer'`,
         [emailNormalized]
       );
@@ -127,7 +126,6 @@ export const login = async (req, res) => {
 
       const customer = customerRows[0];
 
-      // Validasi password
       if (customer.password !== password) {
         return res.status(401).json({ message: "Password salah." });
       }
@@ -142,16 +140,41 @@ export const login = async (req, res) => {
       userType = "CUSTOMER";
     }
 
-    await logActivity({
-      userId: user.id,
-      userType,
-      activityType: "LOGIN",
-      details: {
-        email: user.email,
-        nama: user.nama,
-        role: user.role
+    // Cek apakah sudah ada session aktif
+    const [existingSession] = await db.query(
+      `SELECT id_login, last_activity FROM session_login 
+       WHERE id_user = ? AND status = 'active'
+       ORDER BY login_time DESC LIMIT 1`,
+      [user.id]
+    );
+
+    if (existingSession.length > 0) {
+      const lastActivity = new Date(existingSession[0].last_activity);
+      const now = new Date();
+      const diffMinutes = (now - lastActivity) / 1000 / 60;
+
+      if (diffMinutes < 5) {
+        // Session masih aktif dan belum expired
+        return res.status(403).json({
+          message: "Akun ini sedang login di perangkat lain. Silakan logout terlebih dahulu."
+        });
+      } else {
+        // Session sudah expired (lebih dari 5 menit tidak ada aktivitas), auto logout
+        await db.query(
+          `UPDATE session_login 
+           SET status = 'inactive', logout_time = NOW() 
+           WHERE id_login = ?`,
+          [existingSession[0].id_login]
+        );
       }
-    });
+    }
+
+    // Simpan session login baru
+    await db.query(
+      `INSERT INTO session_login (id_user, user_type, status, login_time, last_activity, logout_time)
+       VALUES (?, ?, 'active', NOW(), NOW(), NULL)`,
+      [user.id, userType]
+    );
 
     res.json({
       message: "Login berhasil",
@@ -166,11 +189,11 @@ export const login = async (req, res) => {
 // GET session login berdasarkan userId
 export const getSessionByUserId = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id_user } = req.params;
 
-    const [rows] = await db.execute(
+    const [rows] = await db.query(
       `SELECT * FROM session_login WHERE id_user = ? AND status = 'active' ORDER BY login_time DESC LIMIT 1`,
-      [parseInt(userId)]
+      [parseInt(id_user)]
     );
 
     if (rows.length === 0) {
@@ -190,7 +213,7 @@ export const getSessionByUserId = async (req, res) => {
 // GET active sessions
 export const getActiveSessions = async (req, res) => {
   try {
-    const { user_type, limit = 10, offset = 0 } = req.query;
+    const { user_type, limit = 20, offset = 0 } = req.query;
 
     let where = "WHERE status = 'active'";
     const params = [];
@@ -200,12 +223,15 @@ export const getActiveSessions = async (req, res) => {
       params.push(user_type.toLowerCase());
     }
 
-    const [sessions] = await db.execute(
+    const limitVal = parseInt(limit);
+    const offsetVal = parseInt(offset);
+
+    const [sessions] = await db.query(
       `SELECT * FROM session_login ${where} ORDER BY last_activity DESC LIMIT ? OFFSET ?`,
-      [...params, parseInt(limit), parseInt(offset)]
+      [...params, limitVal, offsetVal]
     );
 
-    const [[{ total }]] = await db.execute(
+    const [[{ total }]] = await db.query(
       `SELECT COUNT(*) as total FROM session_login ${where}`,
       params
     );
@@ -215,8 +241,8 @@ export const getActiveSessions = async (req, res) => {
       data: sessions,
       pagination: {
         total,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
+        limit: limitVal,
+        offset: offsetVal
       }
     });
 
@@ -228,7 +254,7 @@ export const getActiveSessions = async (req, res) => {
 // GET semua session history
 export const getAllSessionsHistory = async (req, res) => {
   try {
-    const { user_type, limit = 10, offset = 0 } = req.query;
+    const { user_type, limit = 20, offset = 0 } = req.query;
 
     let where = "WHERE 1=1";
     const params = [];
@@ -238,12 +264,16 @@ export const getAllSessionsHistory = async (req, res) => {
       params.push(user_type.toLowerCase());
     }
 
-    const [sessions] = await db.execute(
+    const limitVal = parseInt(limit);
+    const offsetVal = parseInt(offset);
+
+    // Gunakan db.query() agar LIMIT & OFFSET tidak error
+    const [sessions] = await db.query(
       `SELECT * FROM session_login ${where} ORDER BY login_time DESC LIMIT ? OFFSET ?`,
-      [...params, parseInt(limit), parseInt(offset)]
+      [...params, limitVal, offsetVal]
     );
 
-    const [[{ total }]] = await db.execute(
+    const [[{ total }]] = await db.query(
       `SELECT COUNT(*) as total FROM session_login ${where}`,
       params
     );
@@ -253,8 +283,8 @@ export const getAllSessionsHistory = async (req, res) => {
       data: sessions,
       pagination: {
         total,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
+        limit: limitVal,
+        offset: offsetVal
       }
     });
 
@@ -266,32 +296,32 @@ export const getAllSessionsHistory = async (req, res) => {
 // GET histori reservasi customer
 export const getCustomerReservationHistory = async (req, res) => {
   try {
-    const { customerId } = req.params;
+    const { id_user } = req.params;
     const { status, limit = 10, offset = 0 } = req.query;
 
-    if (!customerId) {
+    if (!id_user) {
       return res.status(400).json({ message: "Customer ID wajib diisi." });
     }
 
     // Cek customer ada atau tidak
-    const [customerRows] = await db.execute(
-      `SELECT id_customer FROM customer WHERE id_customer = ?`,
-      [parseInt(customerId)]
+    const [customerRows] = await db.query(
+      `SELECT id_user FROM user WHERE id_user = ?`,
+      [parseInt(id_user)]
     );
 
     if (customerRows.length === 0) {
       return res.status(404).json({ message: "Customer tidak ditemukan." });
     }
 
-    let where = "WHERE hp.id_customer = ?";
-    const params = [parseInt(customerId)];
+    let where = "WHERE hp.id_user = ?";
+    const params = [parseInt(id_user)];
 
     if (status) {
       where += " AND hp.status = ?";
       params.push(status.toLowerCase());
     }
 
-    const [reservations] = await db.execute(
+    const [reservations] = await db.query(
       `SELECT 
         hp.id_history, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
         lk.room_number,
@@ -309,7 +339,7 @@ export const getCustomerReservationHistory = async (req, res) => {
       [...params, parseInt(limit), parseInt(offset)]
     );
 
-    const [[{ total }]] = await db.execute(
+    const [[{ total }]] = await db.query(
       `SELECT COUNT(*) as total FROM history_purchase hp ${where}`,
       params
     );
@@ -317,18 +347,18 @@ export const getCustomerReservationHistory = async (req, res) => {
     res.json({
       message: "Histori reservasi berhasil diambil",
       data: reservations.map(r => ({
-        id: r.id_history,
-        purchaseDate: r.purchase_date,
-        checkinTime: r.checkin_time,
-        checkoutTime: r.checkout_time,
+        id_history: r.id_history,
+        purchase_date: r.purchase_date,
+        checkin_time: r.checkin_time,
+        checkout_time: r.checkout_time,
         amount: r.amount,
         status: r.status,
-        roomNumber: r.room_number,
-        hotelName: r.hotel_name,
+        room_number: r.room_number,
+        hotel_name: r.hotel_name,
         roomType: r.type_room,
         capacity: r.capacity,
-        hotelLocation: r.location,
-        companyName: r.company_name
+        hotel_location: r.location,
+        company_name: r.company_name
       })),
       pagination: {
         total,
@@ -345,28 +375,28 @@ export const getCustomerReservationHistory = async (req, res) => {
 // GET detail reservasi spesifik
 export const getReservationDetail = async (req, res) => {
   try {
-    const { customerId, reservationId } = req.params;
+    const { id_user, id_history } = req.params;
 
-    if (!customerId || !reservationId) {
-      return res.status(400).json({ message: "Customer ID dan Reservation ID wajib diisi." });
+    if (!id_user || !id_history) {
+      return res.status(400).json({ message: "Customer ID dan History ID wajib diisi." });
     }
 
-    const [rows] = await db.execute(
+    const [rows] = await db.query(
       `SELECT 
-        hp.id, hp.purchaseDate, hp.checkinTime, hp.checkoutTime, hp.amount, hp.status,
-        c.id AS customerId, c.name AS customerName, c.email AS customerEmail, c.phoneNumber AS customerPhone,
-        lk.roomNumber, lk.price AS roomPrice,
-        dk.typeRoom, dk.facility, dk.capacity,
-        lh.hotelName, lh.location AS hotelLocation, lh.contactPerson, lh.contactEmail, lh.contactPhone,
-        cp.companyName, cp.email AS companyEmail, cp.address AS companyAddress, cp.phoneNumber AS companyPhone
-      FROM HistoryPurchase hp
-      JOIN Customer c ON hp.customerId = c.id
-      JOIN ListKamar lk ON hp.roomId = lk.id
-      JOIN DetailKamar dk ON lk.detailId = dk.id
-      JOIN ListHotel lh ON lk.hotelId = lh.id
-      JOIN CompanyProfile cp ON hp.companyId = cp.id
-      WHERE hp.id = ? AND hp.customerId = ?`,
-      [parseInt(reservationId), parseInt(customerId)]
+        hp.id_history,hp.id_user, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
+        c.id_user AS id_user, c.name AS customerName, c.email AS customerEmail, c.phone_number AS customerPhone,
+        lk.id_list_kamar, lk.room_number, lk.price AS roomPrice,
+        dk.type_room, dk.facility, dk.capacity,
+        lh.id_list_hotel, lh.hotel_name, lh.location AS hotel_location, lh.contact_person, lh.contact_email, lh.contact_phone,
+        cp.id_company_profile, cp.company_name, cp.email AS company_email, cp.address AS company_address, cp.phone_number AS companyPhone
+      FROM history_purchase hp
+      JOIN user c ON hp.id_user = c.id_user
+      JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
+      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+      JOIN company_profile cp ON hp.id_company_profile = cp.id_company_profile
+      WHERE hp.id_history = ? AND hp.id_user = ?`,
+      [parseInt(id_history), parseInt(id_user)]
     );
 
     if (rows.length === 0) {
@@ -378,36 +408,39 @@ export const getReservationDetail = async (req, res) => {
     res.json({
       message: "Detail reservasi berhasil diambil",
       data: {
-        id: r.id,
-        purchaseDate: r.purchaseDate,
-        checkinTime: r.checkinTime,
-        checkoutTime: r.checkoutTime,
+        id_history: r.id_history,
+        purchase_date: r.purchase_date,
+        checkin_time: r.checkin_time,
+        checkout_time: r.checkout_time,
         amount: r.amount,
         status: r.status,
         customer: {
-          id: r.customerId,
+          id_user: r.id_user,
           nama: r.customerName,
           email: r.customerEmail,
           nomor_telepon: r.customerPhone
         },
         room: {
-          number: r.roomNumber,
-          type: r.typeRoom,
+          id_list_kamar: r.id_list_kamar,
+          number: r.room_number,
+          type: r.type_room,
           facility: r.facility,
           capacity: r.capacity,
           price: r.roomPrice
         },
         hotel: {
-          nama: r.hotelName,
-          location: r.hotelLocation,
-          contactPerson: r.contactPerson,
-          contactEmail: r.contactEmail,
-          contactPhone: r.contactPhone
+          id_list_hotel: r.id_list_hotel,
+          nama: r.hotel_name,
+          location: r.hotel_location,
+          contact_person: r.contact_person,
+          contact_email: r.contact_email,
+          contact_phone: r.contact_phone
         },
         company: {
-          nama: r.companyName,
-          email: r.companyEmail,
-          alamat: r.companyAddress,
+          id_company_profile: r.id_company_profile,
+          nama: r.company_name,
+          email: r.company_email,
+          alamat: r.company_address,
           nomor_telepon: r.companyPhone
         }
       }
@@ -421,30 +454,30 @@ export const getReservationDetail = async (req, res) => {
 // GET ringkasan statistik reservasi customer
 export const getReservationStats = async (req, res) => {
   try {
-    const { customerId } = req.params;
+    const { id_user } = req.params;
 
-    if (!customerId) {
-      return res.status(400).json({ message: "Customer ID wajib diisi." });
+    if (!id_user) {
+      return res.status(400).json({ message: "ID User wajib diisi." });
     }
 
-    const [customerRows] = await db.execute(
-      `SELECT id FROM Customer WHERE id = ?`,
-      [parseInt(customerId)]
+    const [customerRows] = await db.query(
+      `SELECT id_user FROM user WHERE id_user = ?`,
+      [parseInt(id_user)]
     );
 
     if (customerRows.length === 0) {
-      return res.status(404).json({ message: "Customer tidak ditemukan." });
+      return res.status(404).json({ message: "User tidak ditemukan." });
     }
 
-    const [[stats]] = await db.execute(
+    const [[stats]] = await db.query(
       `SELECT
         COUNT(*) AS totalReservasi,
         COALESCE(SUM(amount), 0) AS totalBiaya,
         SUM(CASE WHEN status = 'CONFIRMED' THEN 1 ELSE 0 END) AS confirmed,
         SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelled
-      FROM HistoryPurchase
-      WHERE customerId = ?`,
-      [parseInt(customerId)]
+      FROM history_purchase
+      WHERE id_user = ?`,
+      [parseInt(id_user)]
     );
 
     res.json({
@@ -465,67 +498,67 @@ export const getReservationStats = async (req, res) => {
 // GET histori reservasi berdasarkan mitra/company
 export const getMitraReservationHistory = async (req, res) => {
   try {
-    const { mitraId } = req.params;
+    const { id_company_profile } = req.params;
     const { status, limit = 10, offset = 0 } = req.query;
 
-    if (!mitraId) {
-      return res.status(400).json({ message: "Mitra ID wajib diisi." });
+    if (!id_company_profile) {
+      return res.status(400).json({ message: "ID Company Profile wajib diisi." });
     }
 
-    const [mitraRows] = await db.execute(
-      `SELECT id FROM CompanyProfile WHERE id = ?`,
-      [parseInt(mitraId)]
+    const [mitraRows] = await db.query(
+      `SELECT id_company_profile FROM company_profile WHERE id_company_profile = ?`,
+      [parseInt(id_company_profile)]
     );
 
     if (mitraRows.length === 0) {
       return res.status(404).json({ message: "Mitra tidak ditemukan." });
     }
 
-    let where = "WHERE hp.companyId = ?";
-    const params = [parseInt(mitraId)];
+    let where = "WHERE hp.id_company_profile = ?";
+    const params = [parseInt(id_company_profile)];
 
     if (status) {
       where += " AND hp.status = ?";
       params.push(status.toUpperCase());
     }
 
-    const [reservations] = await db.execute(
+    const [reservations] = await db.query(
       `SELECT 
-        hp.id, hp.purchaseDate, hp.checkinTime, hp.checkoutTime, hp.amount, hp.status,
-        lk.roomNumber,
-        lh.hotelName, lh.location AS hotelLocation,
-        dk.typeRoom, dk.capacity,
+        hp.id_history, hp.id_history, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
+        lk.room_number,
+        lh.hotel_name, lh.location AS hotel_location,
+        dk.type_room, dk.capacity,
         c.name AS customerName, c.email AS customerEmail
-      FROM HistoryPurchase hp
-      JOIN ListKamar lk ON hp.roomId = lk.id
-      JOIN ListHotel lh ON lk.hotelId = lh.id
-      JOIN DetailKamar dk ON lk.detailId = dk.id
-      JOIN Customer c ON hp.customerId = c.id
+      FROM history_purchase hp
+      JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
+      JOIN user c ON hp.id_user = c.id_user
       ${where}
-      ORDER BY hp.purchaseDate DESC
+      ORDER BY hp.purchase_date DESC
       LIMIT ? OFFSET ?`,
       [...params, parseInt(limit), parseInt(offset)]
     );
 
-    const [[{ total }]] = await db.execute(
-      `SELECT COUNT(*) as total FROM HistoryPurchase hp ${where}`,
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) as total FROM history_purchase hp ${where}`,
       params
     );
 
     res.json({
       message: "Histori reservasi mitra berhasil diambil",
       data: reservations.map(r => ({
-        id: r.id,
-        purchaseDate: r.purchaseDate,
-        checkinTime: r.checkinTime,
-        checkoutTime: r.checkoutTime,
+        id_history: r.id_history,
+        purchase_date: r.purchase_date,
+        checkin_time: r.checkin_time,
+        checkout_time: r.checkout_time,
         amount: r.amount,
         status: r.status,
-        roomNumber: r.roomNumber,
-        hotelName: r.hotelName,
-        roomType: r.typeRoom,
+        room_number: r.room_number,
+        hotel_name: r.hotel_name,
+        roomType: r.type_room,
         capacity: r.capacity,
-        hotelLocation: r.hotelLocation,
+        hotel_location: r.hotel_location,
         customerName: r.customerName,
         customerEmail: r.customerEmail
       })),
@@ -544,7 +577,7 @@ export const getMitraReservationHistory = async (req, res) => {
 // GET semua reservasi (untuk admin)
 export const getAllReservations = async (req, res) => {
   try {
-    const { status, customerId, mitraId, limit = 10, offset = 0 } = req.query;
+    const { status, id_user, id_company_profile, limit = 10, offset = 0 } = req.query;
 
     let where = "WHERE 1=1";
     const params = [];
@@ -553,62 +586,64 @@ export const getAllReservations = async (req, res) => {
       where += " AND hp.status = ?";
       params.push(status.toUpperCase());
     }
-    if (customerId) {
-      where += " AND hp.customerId = ?";
-      params.push(parseInt(customerId));
+    if (id_user) {
+      where += " AND hp.id_user = ?";
+      params.push(parseInt(id_user));
     }
-    if (mitraId) {
-      where += " AND hp.companyId = ?";
-      params.push(parseInt(mitraId));
+    if (id_company_profile) {
+      where += " AND hp.id_company_profile = ?";
+      params.push(parseInt(id_company_profile));
     }
 
-    const [reservations] = await db.execute(
+    const limitVal = parseInt(limit);
+    const offsetVal = parseInt(offset);
+
+    const [reservations] = await db.query(
       `SELECT 
-        hp.id, hp.purchaseDate, hp.checkinTime, hp.checkoutTime, hp.amount, hp.status,
-        lk.roomNumber,
-        lh.hotelName, lh.location AS hotelLocation,
-        dk.typeRoom,
-        c.name AS customerName, c.email AS customerEmail,
-        cp.companyName AS mitraName, cp.email AS mitraEmail
-      FROM HistoryPurchase hp
-      JOIN ListKamar lk ON hp.roomId = lk.id
-      JOIN ListHotel lh ON lk.hotelId = lh.id
-      JOIN DetailKamar dk ON lk.detailId = dk.id
-      JOIN Customer c ON hp.customerId = c.id
-      JOIN CompanyProfile cp ON hp.companyId = cp.id
+        hp.id_history, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
+        lk.room_number,
+        lh.hotel_name, lh.location AS hotel_location,
+        dk.type_room,
+        c.name AS user_name, c.email AS user_email,
+        cp.company_name AS mitra_name, cp.email AS mitra_email
+      FROM history_purchase hp
+      JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
+      JOIN user c ON hp.id_user = c.id_user
+      JOIN company_profile cp ON hp.id_company_profile = cp.id_company_profile
       ${where}
-      ORDER BY hp.purchaseDate DESC
-      LIMIT ? OFFSET ?`,
-      [...params, parseInt(limit), parseInt(offset)]
+      ORDER BY hp.purchase_date DESC LIMIT ? OFFSET ?`,
+      [...params, limitVal, offsetVal]
     );
 
-    const [[{ total }]] = await db.execute(
-      `SELECT COUNT(*) as total FROM HistoryPurchase hp ${where}`,
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) as total FROM history_purchase hp ${where}`,
       params
     );
 
     res.json({
       message: "Semua reservasi berhasil diambil",
       data: reservations.map(r => ({
-        id: r.id,
-        purchaseDate: r.purchaseDate,
-        checkinTime: r.checkinTime,
-        checkoutTime: r.checkoutTime,
+        id_history: r.id_history,
+        purchase_date: r.purchase_date,
+        checkin_time: r.checkin_time,
+        checkout_time: r.checkout_time,
         amount: r.amount,
         status: r.status,
-        roomNumber: r.roomNumber,
-        hotelName: r.hotelName,
-        roomType: r.typeRoom,
-        hotelLocation: r.hotelLocation,
-        customerName: r.customerName,
-        customerEmail: r.customerEmail,
-        mitraName: r.mitraName,
-        mitraEmail: r.mitraEmail
+        room_number: r.room_number,
+        hotel_name: r.hotel_name,
+        type_room: r.type_room,
+        hotel_location: r.hotel_location,
+        user_name: r.user_name,
+        user_email: r.user_email,
+        mitra_name: r.mitra_name,
+        mitra_email: r.mitra_email
       })),
       pagination: {
         total,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
+        limit: limitVal,
+        offset: offsetVal
       }
     });
 
@@ -620,85 +655,74 @@ export const getAllReservations = async (req, res) => {
 // CREATE kamar baru
 export const createRoom = async (req, res) => {
   try {
-    const { roomNumber, price, hotelId, detailId, status } = req.body;
+    // PERBAIKAN: Ganti id_detail menjadi id_detail_kamar
+    const { room_number, price, id_list_hotel, id_detail_kamar, status } = req.body;
 
-    // Validasi input
-    if (!roomNumber || roomNumber.trim() === "") {
+    if (!room_number || room_number.trim() === "") {
       return res.status(400).json({ message: "Nomor kamar wajib diisi." });
     }
-    if (!price || price <= 0) {
-      return res.status(400).json({ message: "Harga kamar wajib diisi dan harus lebih dari 0." });
+
+    if (!price || parseFloat(price) <= 0) {
+      return res.status(400).json({ message: "Harga harus lebih besar dari 0." });
     }
-    if (!hotelId) {
-      return res.status(400).json({ message: "Hotel ID wajib diisi." });
-    }
-    if (!detailId) {
+
+    // PERBAIKAN: Ganti id_detail menjadi id_detail_kamar
+    if (!id_detail_kamar) {
       return res.status(400).json({ message: "Detail ID wajib diisi." });
     }
 
-    // Cek hotel ada atau tidak
-    const [hotelRows] = await db.execute(
-      `SELECT id FROM ListHotel WHERE id = ?`,
-      [parseInt(hotelId)]
+    if (!id_list_hotel) {
+      return res.status(400).json({ message: "Hotel ID wajib diisi." });
+    }
+
+    const [hotelRows] = await db.query(
+      `SELECT id_list_hotel FROM list_hotel WHERE id_list_hotel = ?`,
+      [parseInt(id_list_hotel)]
     );
 
     if (hotelRows.length === 0) {
       return res.status(404).json({ message: "Hotel tidak ditemukan." });
     }
 
-    // Cek detail kamar ada atau tidak
-    const [detailRows] = await db.execute(
-      `SELECT id FROM DetailKamar WHERE id = ?`,
-      [parseInt(detailId)]
+    // PERBAIKAN: Ganti id_detail menjadi id_detail_kamar
+    const [detailRows] = await db.query(
+      `SELECT id_detail_kamar FROM detail_kamar WHERE id_detail_kamar = ?`,
+      [parseInt(id_detail_kamar)]
     );
 
     if (detailRows.length === 0) {
       return res.status(404).json({ message: "Detail kamar tidak ditemukan." });
     }
 
-    // Cek duplikasi nomor kamar di hotel yang sama
-    const [existingRows] = await db.execute(
-      `SELECT id FROM ListKamar WHERE roomNumber = ? AND hotelId = ?`,
-      [roomNumber.trim(), parseInt(hotelId)]
+    const [existingRoom] = await db.query(
+      `SELECT id_list_kamar FROM list_kamar WHERE room_number = ? AND id_list_hotel = ?`,
+      [room_number.trim(), parseInt(id_list_hotel)]
     );
 
-    if (existingRows.length > 0) {
+    if (existingRoom.length > 0) {
       return res.status(409).json({ message: "Nomor kamar sudah ada di hotel ini." });
     }
 
-    // Create kamar baru
-    const [result] = await db.execute(
-      `INSERT INTO ListKamar (roomNumber, price, status, hotelId, detailId) VALUES (?, ?, ?, ?, ?)`,
-      [roomNumber.trim(), parseFloat(price), status?.toUpperCase() || "AVAILABLE", parseInt(hotelId), parseInt(detailId)]
+    const roomStatus = status ? status.toUpperCase() : "AVAILABLE";
+
+    const [result] = await db.query(
+      `INSERT INTO list_kamar (id_list_hotel, id_detail_kamar, room_number, price, status) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [parseInt(id_list_hotel), parseInt(id_detail_kamar), room_number.trim(), parseFloat(price), roomStatus]
     );
 
-    const newRoomId = result.insertId;
-
-    const [roomRows] = await db.execute(
-      `SELECT lk.id, lk.roomNumber, lk.price, lk.status,
-        lh.hotelName,
-        dk.typeRoom, dk.facility, dk.capacity
-      FROM ListKamar lk
-      JOIN ListHotel lh ON lk.hotelId = lh.id
-      JOIN DetailKamar dk ON lk.detailId = dk.id
-      WHERE lk.id = ?`,
-      [newRoomId]
+    const [newRoom] = await db.query(
+      `SELECT k.id_list_kamar, k.room_number, k.price, k.status, lh.hotel_name, dk.type_room, dk.description,dk.facility, dk.capacity 
+       FROM list_kamar k
+       JOIN list_hotel lh ON k.id_list_hotel = lh.id_list_hotel
+       JOIN detail_kamar dk ON k.id_detail_kamar = dk.id_detail_kamar
+       WHERE k.id_list_kamar = ?`,
+      [result.insertId]
     );
-
-    const room = roomRows[0];
 
     res.status(201).json({
       message: "Kamar berhasil ditambahkan",
-      data: {
-        id: room.id,
-        roomNumber: room.roomNumber,
-        price: room.price,
-        status: room.status,
-        hotelName: room.hotelName,
-        roomType: room.typeRoom,
-        facility: room.facility,
-        capacity: room.capacity
-      }
+      data: newRoom[0]
     });
 
   } catch (error) {
