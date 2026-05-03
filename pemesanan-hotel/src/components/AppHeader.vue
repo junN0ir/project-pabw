@@ -12,6 +12,7 @@
 
           <template v-if="auth.isLoggedIn">
             <RouterLink to="/reservations" @click="closeMenu">Reservasi Saya</RouterLink>
+            <RouterLink v-if="auth.isAdmin" to="/admin" class="admin-link" @click="closeMenu">Admin Dashboard</RouterLink>
             <div class="user-menu" @click.stop="toggleUserMenu">
               <div class="user-avatar">{{ auth.user.name.charAt(0) }}</div>
               <span class="user-name">{{ auth.user.name.split(' ')[0] }}</span>
@@ -173,6 +174,24 @@ onUnmounted(() => {
 
 .btn-login::after { display: none !important; }
 
+.admin-link {
+  background: var(--accent) !important;
+  color: #fff !important;
+  padding: .5rem 1.3rem !important;
+  border-radius: 3px;
+  font-size: .75rem !important;
+  letter-spacing: 2px;
+  font-weight: 700 !important;
+  transition: all .3s !important;
+}
+
+.admin-link:hover {
+  background: var(--accent-dark) !important;
+  transform: translateY(-2px);
+}
+
+.admin-link::after { display: none !important; }
+
 /* User menu */
 .user-menu {
   display: flex; align-items: center; gap: .5rem;
@@ -254,6 +273,14 @@ onUnmounted(() => {
   }
 
   .nav > a::after { display: none; }
+
+  .admin-link {
+    background: var(--accent) !important;
+    padding: .9rem 1.5rem !important;
+    border-radius: 0 !important;
+    border-bottom: 1px solid rgba(255,255,255,.05) !important;
+    font-size: .9rem !important;
+  }
 
   .user-menu {
     padding: .9rem 1.5rem; border-radius: 0;

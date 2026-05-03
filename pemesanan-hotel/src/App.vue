@@ -1,11 +1,11 @@
 <template>
   <AppHeader />
-  <main>
+  <main :class="{ 'admin-layout': isAdminPage }">
     <RouterView />
   </main>
-  <AppFooter />
+  <AppFooter v-if="!isAdminPage" />
 
-  <template v-if="!isDetailPage">
+  <template v-if="!isDetailPage && !isAdminPage">
     <BookingModal v-if="bookingStore.showBookingModal" />
     <ConfirmationModal v-if="bookingStore.showConfirmationModal" />
   </template>
@@ -24,6 +24,8 @@ const bookingStore = useBookingStore()
 const route = useRoute()
 
 const isDetailPage = computed(() => route.name === 'HotelDetail')
+
+const isAdminPage = computed(() => route.name === 'Admin')
 </script>
 
 <style>
@@ -35,5 +37,10 @@ const isDetailPage = computed(() => route.name === 'HotelDetail')
 
 main {
   min-height: calc(100vh - 130px);
+}
+
+main.admin-layout {
+  min-height: calc(100vh - 58px);
+  padding: 0;
 }
 </style>

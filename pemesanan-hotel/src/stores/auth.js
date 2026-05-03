@@ -13,7 +13,16 @@ export const useAuthStore = defineStore('auth', () => {
   // Simulasi database user (nanti diganti API)
   const mockUsers = [
     { id: 1, name: 'customer', email: 'customer@email.com', password: 'customer123', role: 'customer', phone: '081234567890', joinDate: '2024-01-15' },
-    { id: 2, name: 'Lusy Rahmawati', email: 'lusy@email.com', password: 'password123', role: 'customer', phone: '089876543210', joinDate: '2024-03-20' }
+    { id: 2, name: 'Lusy Rahmawati', email: 'lusy@email.com', password: 'password123', role: 'customer', phone: '089876543210', joinDate: '2024-03-20' },
+    {
+      id: 99,
+      name: 'Administrator',
+      email: 'admin@pabw.com',
+      password: 'admin123',
+      role: 'admin',
+      phone: '08000000000',
+      joinDate: '2024-01-01'
+    }
   ]
 
   function login(email, password) {

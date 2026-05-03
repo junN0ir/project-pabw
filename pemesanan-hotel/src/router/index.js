@@ -40,7 +40,13 @@ const routes = [
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/HomeView.vue')
-  }
+  },
+  {
+  path: '/admin',
+  name: 'Admin',
+  component: () => import('@/views/AdminView.vue'),
+  meta: { requiresAuth: true, requiresAdmin: true }
+}
 ]
 
 const router = createRouter({
@@ -54,12 +60,14 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  // Pinia store dipanggil di dalam beforeEach, bukan di luar
   const auth = useAuthStore()
-
+ 
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
   } else if (to.meta.guestOnly && auth.isLoggedIn) {
+    next({ name: 'Home' })
+  } else if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
+    // Redirect jika bukan admin
     next({ name: 'Home' })
   } else {
     next()
