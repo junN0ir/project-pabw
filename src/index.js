@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/authRoutes.js";
+import sessionRoutes from "./routes/sessionRoutes.js";
+import reservationRoutes from "./routes/reservationRoutes.js";
+import roomRoutes from "./routes/roomRoutes.js";
 
 dotenv.config();
 
@@ -15,6 +18,9 @@ app.get("/", (req, res) => {
 });
 
 app.use(authRoutes);
+app.use(sessionRoutes);
+app.use(reservationRoutes);
+app.use(roomRoutes);
 
 const PORT = process.env.PORT || 3000;
 
