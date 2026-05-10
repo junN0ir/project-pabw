@@ -12,11 +12,12 @@ import {
   getAllReservations,
   createRoom
 } from "../controllers/authController.js";
+import { logActivity } from "../services/activityService.js";
 
 const router = express.Router();
 
-router.post("/register", register);
-router.post("/login", login);
+router.post("/register", logActivity, register);
+router.post("/login", logActivity, login);
 
 // Session login routes
 router.get("/sessions", getAllSessionsHistory);
