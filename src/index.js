@@ -5,6 +5,7 @@ import authRoutes from "./routes/authRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import roomRoutes from "./routes/roomRoutes.js";
+import mitraRoutes from "./routes/mitraRoutes.js";
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(authRoutes);
 app.use(sessionRoutes);
 app.use(reservationRoutes);
 app.use(roomRoutes);
+app.use(mitraRoutes);
 
 const PORT = process.env.PORT || 3000;
 
