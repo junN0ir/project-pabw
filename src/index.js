@@ -5,6 +5,9 @@ import authRoutes from "./routes/authRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import roomRoutes from "./routes/roomRoutes.js";
+import hotelRoutes from "./routes/hotel.js";
+import bookingRoutes from "./routes/booking.js";
+import checkoutRoutes from "./routes/checkout.js";
 
 dotenv.config();
 
@@ -21,6 +24,9 @@ app.use(authRoutes);
 app.use(sessionRoutes);
 app.use(reservationRoutes);
 app.use(roomRoutes);
+app.use("/hotel", hotelRoutes);
+app.use("/booking", bookingRoutes);
+app.use("/checkout", checkoutRoutes);
 
 const PORT = process.env.PORT || 3000;
 
