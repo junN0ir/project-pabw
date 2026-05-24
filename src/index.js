@@ -8,6 +8,7 @@ import roomRoutes from "./routes/roomRoutes.js";
 import hotelRoutes from "./routes/hotel.js";
 import bookingRoutes from "./routes/booking.js";
 import checkoutRoutes from "./routes/checkout.js";
+import mitraRoutes from "./routes/mitraRoutes.js";
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use(roomRoutes);
 app.use("/hotel", hotelRoutes);
 app.use("/booking", bookingRoutes);
 app.use("/checkout", checkoutRoutes);
+app.use(mitraRoutes);
 
 const PORT = process.env.PORT || 3000;
 

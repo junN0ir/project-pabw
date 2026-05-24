@@ -27,18 +27,10 @@ router.get("/company/:id", async (req, res) => {
 });
 
 // POST /hotel/add-description
-router.post("/add-description", async (req, res) => {
-    const { id_list_hotel, hotel_name, description, facilities, rating } = req.body;
-
-    const result = await HotelController.addHotelDescription({
-        id_list_hotel,
-        hotel_name,
-        description,
-        facilities,
-        rating
-    });
-
-    const statusCode = result.status === "error" ? 400 : 200;
+router.post("/add_description", async (req, res) => {
+    const { type_room, description, facility, capacity } = req.body;
+    const result = await HotelController.addRoomDescription({ type_room, description, facility, capacity });
+    const statusCode = result.status === "error" ? 400 : 201;
     return res.status(statusCode).json(result);
 });
 

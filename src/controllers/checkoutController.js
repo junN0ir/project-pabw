@@ -5,23 +5,23 @@ class CheckoutController {
     // Proses checkout
     static async performCheckout({
         id_history,
-        id_customer,
+        id_user,
         checkout_time,
         additional_charges
     }) {
         try {
             // Validasi input
-            if (!id_history || !id_customer) {
+            if (!id_history || !id_user) {
                 return errorResponse({
-                    message: "id_history dan id_customer tidak boleh kosong"
+                    message: "id_history dan id_user tidak boleh kosong"
                 });
             }
 
             // Step 1: Ambil data reservasi yang aktif
             const [reservation] = await pool.query(
                 `SELECT * FROM history_purchase 
-                 WHERE id_history = ? AND id_customer = ? AND status = 'confirmed'`,
-                [id_history, id_customer]
+                 WHERE id_history = ? AND id_user = ? AND status = 'confirmed'`,
+                [id_history, id_user]
             );
 
             if (reservation.length === 0) {
@@ -103,7 +103,7 @@ class CheckoutController {
                 message: 'Checkout berhasil dilakukan',
                 data: {
                     id_history: id_history,
-                    customer_id: id_customer,
+                    user_id: id_user,
                     checkout_status: 'success',
                     checkout_time: actualCheckoutTimeISO,
                     duration_days: durationDays,
@@ -128,11 +128,11 @@ class CheckoutController {
     }
 
     // Mendapatkan detail masa menginap sebelum checkout
-    static async getCheckoutDetails(id_history, id_customer) {
+    static async getCheckoutDetails(id_history, id_user) {
         try {
-            if (!id_history || !id_customer) {
+            if (!id_history || !id_user) {
                 return errorResponse({
-                    message: "id_history dan id_customer tidak boleh kosong"
+                    message: "id_history dan id_user tidak boleh kosong"
                 });
             }
 
@@ -141,8 +141,8 @@ class CheckoutController {
                  FROM history_purchase hp
                  JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
                  JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-                 WHERE hp.id_history = ? AND hp.id_customer = ?`,
-                [id_history, id_customer]
+                 WHERE hp.id_history = ? AND hp.id_user = ?`,
+                [id_history, id_user]
             );
 
             if (reservation.length === 0) {
@@ -181,11 +181,11 @@ class CheckoutController {
     }
 
     // Mendapatkan checkout history
-    static async getCheckoutHistory(id_customer) {
+    static async getCheckoutHistory(id_user) {
         try {
-            if (!id_customer) {
+            if (!id_user) {
                 return errorResponse({
-                    message: "id_customer tidak boleh kosong"
+                    message: "id_user tidak boleh kosong"
                 });
             }
 
@@ -194,9 +194,9 @@ class CheckoutController {
                  FROM history_purchase hp
                  JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
                  JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-                 WHERE hp.id_customer = ? AND hp.status = 'confirmed'
+                 WHERE hp.id_user = ? AND hp.status = 'confirmed'
                  ORDER BY hp.checkout_time DESC`,
-                [id_customer]
+                [id_user]
             );
 
             if (history.length === 0) {

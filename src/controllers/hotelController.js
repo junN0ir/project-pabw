@@ -3,54 +3,40 @@ import { successResponse, errorResponse } from "../models/apiResponse.js";
 
 class HotelController {
     // Menambahkan atau mengupdate deskripsi hotel
-    static async addHotelDescription({
-        id_list_hotel,
-        hotel_name,
+    static async addRoomDescription({
+        type_room,
         description,
-        facilities,
-        rating
+        facility,
+        capacity
     }) {
         try {
-            // Validasi input
-            if (!id_list_hotel || !description || !facilities) {
+            if (!type_room || !description || !facility || !capacity) {
                 return errorResponse({
-                    message: "id_list_hotel, description, dan facilities tidak boleh kosong"
+                    message: "type_room, description, facility, dan capacity tidak boleh kosong"
                 });
             }
 
-            // Cek apakah hotel dengan ID tersebut ada
-            const [checkHotel] = await pool.query(
-                'SELECT * FROM list_hotel WHERE id_list_hotel = ?',
-                [id_list_hotel]
-            );
-
-            if (checkHotel.length === 0) {
-                return errorResponse({
-                    message: "Hotel tidak ditemukan"
-                });
-            }
-
-            // Update deskripsi hotel di tabel list_hotel
             const [result] = await pool.query(
-                'UPDATE list_hotel SET description = ?, facilities = ?, rating = ? WHERE id_list_hotel = ?',
-                [description, facilities, rating || null, id_list_hotel]
+                `INSERT INTO detail_kamar 
+                (type_room, description, facility, capacity) 
+                VALUES (?, ?, ?, ?)`,
+                [type_room, description, facility, capacity]
             );
 
             if (result.affectedRows === 0) {
                 return errorResponse({
-                    message: "Gagal mengupdate deskripsi hotel"
+                    message: "Gagal menambahkan deskripsi kamar"
                 });
             }
 
-            // Ambil data hotel yang sudah diupdate
-            const [updatedHotel] = await pool.query(
-                'SELECT * FROM list_hotel WHERE id_list_hotel = ?',
-                [id_list_hotel]
+            const [newRoomDescription] = await pool.query(
+                "SELECT * FROM detail_kamar WHERE id_detail_kamar = ?",
+                [result.insertId]
             );
 
             return successResponse({
-                message: 'Deskripsi hotel berhasil diperbarui',
-                data: updatedHotel[0]
+                message: "Deskripsi kamar berhasil ditambahkan",
+                data: newRoomDescription[0]
             });
         } catch (error) {
             console.error("Error:", error.message);

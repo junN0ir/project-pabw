@@ -4,125 +4,166 @@ import { successResponse, errorResponse } from "../models/apiResponse.js";
 class CheckinController {
     // Proses checkin
     static async performCheckin({
-        id_history,
-        id_customer,
-        id_list_hotel,
-        reservation_number,
-        checkin_time
-    }) {
-        try {
-            // Validasi input
-            if (!id_history || !id_customer || !id_list_hotel) {
-                return errorResponse({
-                    message: "id_history, id_customer, dan id_list_hotel tidak boleh kosong"
-                });
-            }
+    id_history,
+    id_user,
+    checkin_time
+}) {
+    const connection = await pool.getConnection();
 
-            // Step 1: Cek apakah reservasi ada dan statusnya valid
-            const [reservation] = await pool.query(
-                `SELECT * FROM history_purchase 
-                 WHERE id_history = ? AND id_customer = ? AND status = 'confirmed'`,
-                [id_history, id_customer]
-            );
-
-            if (reservation.length === 0) {
-                return errorResponse({
-                    message: "Reservasi tidak ditemukan atau sudah dibatalkan"
-                });
-            }
-
-            // Step 2: Validasi waktu checkin dengan schedule
-            const bookedCheckinTime = new Date(reservation[0].checkin_time);
-            const currentTime = new Date(checkin_time || Date.now());
-
-            if (currentTime < bookedCheckinTime) {
-                return errorResponse({
-                    message: "Waktu checkin lebih awal dari jadwal"
-                });
-            }
-
-            // Step 3: Update status kamar menjadi not available (sedang dipakai)
-            const [updateRoom] = await pool.query(
-                `UPDATE list_kamar SET status = 'not available' WHERE id_list_kamar = ?`,
-                [reservation[0].id_list_kamar]
-            );
-
-            if (updateRoom.affectedRows === 0) {
-                return errorResponse({
-                    message: "Gagal mengupdate status kamar"
-                });
-            }
-
-            // Step 4: Simpan waktu checkin actual ke history dengan format MySQL datetime
-            const actualCheckinDate = new Date(checkin_time || Date.now());
-            const actualCheckinTime = actualCheckinDate.toISOString().slice(0, 19).replace('T', ' ');
-            
-            const [updateCheckin] = await pool.query(
-                `UPDATE history_purchase 
-                 SET checkin_time = ? 
-                 WHERE id_history = ?`,
-                [actualCheckinTime, id_history]
-            );
-
-            if (updateCheckin.affectedRows === 0) {
-                return errorResponse({
-                    message: "Gagal menyimpan data checkin"
-                });
-            }
-
-            // Step 5: Ambil data checkin untuk konfirmasi
-            const [checkinData] = await pool.query(
-                `SELECT hp.*, lh.hotel_name, lh.location
-                 FROM history_purchase hp
-                 JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
-                 JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-                 WHERE hp.id_history = ?`,
-                [id_history]
-            );
-
-            return successResponse({
-                message: 'Checkin berhasil dilakukan',
-                data: {
-                    id_history: id_history,
-                    customer_id: id_customer,
-                    checkin_status: 'success',
-                    checkin_time: actualCheckinTime,
-                    hotel_info: checkinData[0],
-                    notification: `Selamat datang di ${checkinData[0]?.hotel_name}. Kamar Anda siap untuk digunakan.`
-                }
-            });
-        } catch (error) {
-            console.error("Error:", error.message);
+    try {
+        if (!id_history || !id_user) {
             return errorResponse({
-                message: error.message
+                message: "id_history dan id_user tidak boleh kosong"
             });
         }
+
+        await connection.beginTransaction();
+
+        const [reservation] = await connection.query(
+            `SELECT hp.*, lk.id_list_kamar, lk.status AS room_status, lh.hotel_name, lh.location
+             FROM history_purchase hp
+             JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+             JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+             WHERE hp.id_history = ?
+             AND hp.id_user = ?
+             AND hp.status = 'confirmed'
+             LIMIT 1`,
+            [id_history, id_user]
+        );
+
+        if (reservation.length === 0) {
+            await connection.rollback();
+
+            return errorResponse({
+                message: "Reservasi tidak ditemukan atau status reservasi bukan confirmed"
+            });
+        }
+
+        const reservationData = reservation[0];
+
+        if (reservationData.room_status !== "avaible") {
+            await connection.rollback();
+
+            return errorResponse({
+                message: "Kamar tidak tersedia untuk checkin"
+            });
+        }
+
+        const bookedCheckinTime = new Date(reservationData.checkin_time);
+        const currentTime = new Date(checkin_time || Date.now());
+
+        if (currentTime < bookedCheckinTime) {
+            await connection.rollback();
+
+            return errorResponse({
+                message: "Waktu checkin lebih awal dari jadwal"
+            });
+        }
+
+        const actualCheckinDate = new Date(checkin_time || Date.now());
+        const actualCheckinTime = actualCheckinDate
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
+
+        const [updateHistory] = await connection.query(
+            `UPDATE history_purchase
+             SET status = 'checkin',
+                 checkin_time = ?
+             WHERE id_history = ?
+             AND id_user = ?
+             AND status = 'confirmed'`,
+            [actualCheckinTime, id_history, id_user]
+        );
+
+        if (updateHistory.affectedRows === 0) {
+            await connection.rollback();
+
+            return errorResponse({
+                message: "Gagal mengupdate status reservasi menjadi checkin"
+            });
+        }
+
+        const [updateRoom] = await connection.query(
+            `UPDATE list_kamar
+             SET status = 'not avaible'
+             WHERE id_list_kamar = ?
+             AND status = 'avaible'`,
+            [reservationData.id_list_kamar]
+        );
+
+        if (updateRoom.affectedRows === 0) {
+            await connection.rollback();
+
+            return errorResponse({
+                message: "Gagal mengupdate status kamar menjadi not avaible"
+            });
+        }
+
+        const [checkinData] = await connection.query(
+            `SELECT hp.*, lh.hotel_name, lh.location, lk.status AS room_status
+             FROM history_purchase hp
+             JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+             JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+             WHERE hp.id_history = ?
+             AND hp.id_user = ?`,
+            [id_history, id_user]
+        );
+
+        await connection.commit();
+
+        return successResponse({
+            message: "Checkin berhasil dilakukan",
+            data: {
+                id_history,
+                id_user,
+                id_list_kamar: reservationData.id_list_kamar,
+                status_reservasi: "checkin",
+                status_kamar: "not avaible",
+                checkin_time: actualCheckinTime,
+                hotel_info: checkinData[0],
+                notification: `Selamat datang di ${checkinData[0]?.hotel_name}. Kamar Anda siap untuk digunakan.`
+            }
+        });
+    } catch (error) {
+        await connection.rollback();
+
+        console.error("Error:", error.message);
+
+        return errorResponse({
+            message: error.message
+        });
+    } finally {
+        connection.release();
     }
+}
 
     // Mendapatkan detail reservasi untuk checkin
-    static async getReservationForCheckin(id_customer, reservation_number) {
+    static async getReservationForCheckin(id_user, id_history) {
         try {
-            if (!id_customer) {
+            if (!id_user) {
                 return errorResponse({
-                    message: "id_customer tidak boleh kosong"
+                    message: "id_user tidak boleh kosong"
                 });
             }
 
-            let query = `
+            if (!id_history) {
+                return errorResponse({
+                    message: "id_history tidak boleh kosong"
+                });
+            }
+
+            const query = `
                 SELECT hp.*, lh.hotel_name, lh.location
                 FROM history_purchase hp
                 JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
                 JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-                WHERE hp.id_customer = ? AND hp.status = 'confirmed'
+                WHERE hp.id_user = ?
+                AND hp.id_history = ?
+                AND hp.status = 'confirmed'
             `;
 
-            let params = [id_customer];
-
-            // Jika reservation number diberikan, tambahkan ke filter
-            if (reservation_number) {
-                query += ` AND hp.id_history = ?`;
-                params.push(reservation_number);
-            }
+            const params = [id_user, id_history];
 
             const [reservations] = await pool.query(query, params);
 
@@ -133,7 +174,7 @@ class CheckinController {
             }
 
             return successResponse({
-                message: 'Reservasi ditemukan',
+                message: "Reservasi ditemukan",
                 data: reservations
             });
         } catch (error) {
@@ -145,11 +186,11 @@ class CheckinController {
     }
 
     // Mendapatkan checkin history
-    static async getCheckinHistory(id_customer) {
+    static async getCheckinHistory(id_user) {
         try {
-            if (!id_customer) {
+            if (!id_user) {
                 return errorResponse({
-                    message: "id_customer tidak boleh kosong"
+                    message: "id_user tidak boleh kosong"
                 });
             }
 
@@ -158,9 +199,9 @@ class CheckinController {
                  FROM history_purchase hp
                  JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
                  JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-                 WHERE hp.id_customer = ?
+                 WHERE hp.id_user = ?
                  ORDER BY hp.checkin_time DESC`,
-                [id_customer]
+                [id_user]
             );
 
             if (history.length === 0) {

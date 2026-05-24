@@ -1,5 +1,4 @@
 import db from "../config/db.js";
-import { logActivity } from "../services/activityService.js";
 
 // pengganti trigger register
 export const register = async (req, res) => {
@@ -37,17 +36,6 @@ export const register = async (req, res) => {
     );
 
     const userId = result.insertId;
-
-    await logActivity({
-      userId,
-      userType: "CUSTOMER",
-      activityType: "REGISTER",
-      details: {
-        email: emailNormalized,
-        name: name.trim(),
-        phone_number: phone_number || ""
-      }
-    });
 
     res.json({
       message: "Register berhasil",

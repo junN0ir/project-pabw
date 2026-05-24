@@ -3,11 +3,10 @@ import {
   register, 
   login
 } from "../controllers/authController.js";
-import { logActivity } from "../services/activityService.js";
 
 const router = express.Router();
 
-router.post("/register", logActivity, register);
-router.post("/login", logActivity, login);
+router.post("/register", register);
+router.post("/login", login);
 
 export default router;

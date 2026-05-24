@@ -1,5 +1,4 @@
 import db from "../config/db.js";
-import { logActivity } from "../services/activityService.js";
 
 // UC14 - Mengubah Deskripsi Hotel
 export const updateHotelDescription = async (req, res) => {
@@ -54,12 +53,6 @@ export const updateHotelDescription = async (req, res) => {
       [parseInt(id_list_hotel)]
     );
 
-    await logActivity({
-      userId: parseInt(id_company_profile),
-      userType: "MITRA",
-      activityType: "UPDATE_HOTEL_DESCRIPTION",
-      details: { id_list_hotel: parseInt(id_list_hotel), hotel_name: newHotelName }
-    });
 
     res.json({
       message: "Deskripsi hotel berhasil diperbarui",
@@ -132,13 +125,6 @@ export const updateRoomCategory = async (req, res) => {
       [parseInt(id_detail_kamar)]
     );
 
-    await logActivity({
-      userId: parseInt(id_company_profile),
-      userType: "MITRA",
-      activityType: "UPDATE_ROOM_CATEGORY",
-      details: { id_detail_kamar: parseInt(id_detail_kamar), type_room: newTypeRoom }
-    });
-
     res.json({
       message: "Kategori kamar berhasil diperbarui",
       data: updated[0]
@@ -201,18 +187,6 @@ export const updateRoomStatus = async (req, res) => {
       `UPDATE list_kamar SET status = ? WHERE id_list_kamar = ?`,
       [normalizedStatus, parseInt(id_list_kamar)]
     );
-
-    await logActivity({
-      userId: parseInt(id_company_profile),
-      userType: "MITRA",
-      activityType: "UPDATE_ROOM_STATUS",
-      details: {
-        id_list_kamar: parseInt(id_list_kamar),
-        room_number: room.room_number,
-        old_status: room.status,
-        new_status: normalizedStatus
-      }
-    });
 
     res.json({
       message: "Status kamar berhasil diperbarui",
