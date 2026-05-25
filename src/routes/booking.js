@@ -30,7 +30,7 @@ router.get("/reservasi/:id_user/:id_history", async (req, res) => {
     return res.status(statusCode).json(result);
 });
 
-// POST /booking/checkin
+// UC20 - Melakukan Checkin
 router.put("/reservasi/:id_history/checkin", async (req, res) => {
     const { id_history } = req.params;
     const { id_user, checkin_time } = req.body;

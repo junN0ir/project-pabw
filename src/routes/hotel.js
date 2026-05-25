@@ -10,7 +10,7 @@ router.get("/all", async (req, res) => {
     return res.status(statusCode).json(result);
 });
 
-// GET /hotel/:id
+// UC7 - Melihat Deskripsi Hotel
 router.get("/:id", async (req, res) => {
     const { id } = req.params;
     const result = await HotelController.getHotelDescription(id);
@@ -26,7 +26,7 @@ router.get("/company/:id", async (req, res) => {
     return res.status(statusCode).json(result);
 });
 
-// POST /hotel/add-description
+// UC22 - Menambahkan Deskripsi Hotel
 router.post("/add_description", async (req, res) => {
     const { type_room, description, facility, capacity } = req.body;
     const result = await HotelController.addRoomDescription({ type_room, description, facility, capacity });

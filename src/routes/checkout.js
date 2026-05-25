@@ -19,7 +19,7 @@ router.get("/details", async (req, res) => {
     return res.status(statusCode).json(result);
 });
 
-// POST /checkout/perform
+// UC21 - Melakukan Checkout
 router.post("/perform", async (req, res) => {
     const { id_history, id_user, checkout_time, additional_charges } = req.body;
 
