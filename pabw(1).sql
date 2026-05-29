@@ -288,4 +288,12 @@ SET @@SESSION.SQL_LOG_BIN = @MYSQLDUMP_TEMP_LOG_BIN;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
+
+ALTER TABLE company_profile
+DROP FOREIGN KEY fk_id_admin;
+
+ALTER TABLE company_profile
+ADD CONSTRAINT fk_company_profile_user
+FOREIGN KEY (id_user) REFERENCES user(id_user);
 -- Dump completed on 2026-05-29 22:33:22
+
