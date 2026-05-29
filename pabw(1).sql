@@ -296,4 +296,3 @@ ALTER TABLE company_profile
 ADD CONSTRAINT fk_company_profile_user
 FOREIGN KEY (id_user) REFERENCES user(id_user);
 -- Dump completed on 2026-05-29 22:33:22
-

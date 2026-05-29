@@ -255,7 +255,7 @@ export const addMitra = async (req, res) => {
 
     if (id_user) {
       const [userRows] = await connection.query(
-        `SELECT id_user FROM user WHERE id_user = ?`,
+        `SELECT id_user FROM user WHERE id_user = ? AND role = 'admin'`,
         [parseInt(id_user)]
       );
 
