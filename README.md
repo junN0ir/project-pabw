@@ -23,3 +23,10 @@
 - UC12 Menghapus Mitra
 - UC17 Melihat Pendapatan
 - UC18 Melihat Ketersediaan Kamar
+
+import di postman file json berikut:
+Project_PABW_API_Bahasa_Indonesia_Final_Sesuai_Kode.postman_collection.json
+
+Dibagian Environment, tambahkan:
+Variable    | Value
+BASE_URL    | http://localhost:3000
