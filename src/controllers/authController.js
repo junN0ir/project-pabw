@@ -173,3 +173,98 @@ export const login = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// UC5 Lupa Password
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email, new_password, user_type } = req.body;
+
+    if (!email || email.trim() === "") {
+      return res.status(400).json({ message: "Email wajib diisi." });
+    }
+
+    if (!new_password || new_password.trim() === "") {
+      return res.status(400).json({ message: "Password baru wajib diisi." });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ message: "Password baru minimal 6 karakter." });
+    }
+
+    const emailNormalized = email.toLowerCase().trim();
+    const userTypeNormalized = user_type ? user_type.toLowerCase().trim() : null;
+
+    if (userTypeNormalized && !["customer", "mitra"].includes(userTypeNormalized)) {
+      return res.status(400).json({ message: "user_type hanya boleh customer atau mitra." });
+    }
+
+    const targets = [];
+
+    if (!userTypeNormalized || userTypeNormalized === "customer") {
+      const [customerRows] = await db.query(
+        `SELECT id_user, name, email FROM user WHERE email = ? AND role = 'customer'`,
+        [emailNormalized]
+      );
+
+      if (customerRows.length > 0) {
+        targets.push({ type: "customer", data: customerRows[0] });
+      }
+    }
+
+    if (!userTypeNormalized || userTypeNormalized === "mitra") {
+      const [mitraRows] = await db.query(
+        `SELECT id_company_profile, company_name, email FROM company_profile WHERE email = ?`,
+        [emailNormalized]
+      );
+
+      if (mitraRows.length > 0) {
+        targets.push({ type: "mitra", data: mitraRows[0] });
+      }
+    }
+
+    if (targets.length === 0) {
+      return res.status(404).json({ message: "Email tidak ditemukan." });
+    }
+
+    if (targets.length > 1 && !userTypeNormalized) {
+      return res.status(400).json({
+        message: "Email ditemukan pada customer dan mitra. Kirim user_type untuk menentukan akun yang ingin direset."
+      });
+    }
+
+    const target = targets[0];
+
+    if (target.type === "customer") {
+      await db.query(
+        `UPDATE user SET password = ? WHERE id_user = ?`,
+        [new_password, target.data.id_user]
+      );
+
+      return res.json({
+        message: "Password customer berhasil diperbarui",
+        data: {
+          id_user: target.data.id_user,
+          name: target.data.name,
+          email: target.data.email
+        }
+      });
+    }
+
+    await db.query(
+      `UPDATE company_profile SET password = ? WHERE id_company_profile = ?`,
+      [new_password, target.data.id_company_profile]
+    );
+
+    return res.json({
+      message: "Password mitra berhasil diperbarui",
+      data: {
+        id_company_profile: target.data.id_company_profile,
+        company_name: target.data.company_name,
+        email: target.data.email
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

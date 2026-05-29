@@ -205,3 +205,262 @@ export const updateRoomStatus = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// UC11 Menambahkan Mitra
+export const addMitra = async (req, res) => {
+  const connection = await db.getConnection();
+
+  try {
+    const {
+      id_company_profile,
+      company_name,
+      address,
+      phone_number,
+      email,
+      username,
+      password,
+      id_user
+    } = req.body;
+
+    if (!company_name || !address || !phone_number || !email || !username || !password) {
+      return res.status(400).json({
+        message: "company_name, address, phone_number, email, username, dan password wajib diisi."
+      });
+    }
+
+    const emailNormalized = email.toLowerCase().trim();
+    const usernameNormalized = username.trim();
+
+    await connection.beginTransaction();
+
+    const [existingEmail] = await connection.query(
+      `SELECT id_company_profile FROM company_profile WHERE email = ?`,
+      [emailNormalized]
+    );
+
+    if (existingEmail.length > 0) {
+      await connection.rollback();
+      return res.status(409).json({ message: "Email mitra sudah terdaftar." });
+    }
+
+    const [existingUsername] = await connection.query(
+      `SELECT id_company_profile FROM company_profile WHERE username = ?`,
+      [usernameNormalized]
+    );
+
+    if (existingUsername.length > 0) {
+      await connection.rollback();
+      return res.status(409).json({ message: "Username mitra sudah terdaftar." });
+    }
+
+    if (id_user) {
+      const [userRows] = await connection.query(
+        `SELECT id_user FROM user WHERE id_user = ?`,
+        [parseInt(id_user)]
+      );
+
+      if (userRows.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ message: "User pemilik mitra tidak ditemukan." });
+      }
+    }
+
+    let newCompanyProfileId = id_company_profile ? parseInt(id_company_profile) : null;
+
+    if (newCompanyProfileId) {
+      const [existingId] = await connection.query(
+        `SELECT id_company_profile FROM company_profile WHERE id_company_profile = ?`,
+        [newCompanyProfileId]
+      );
+
+      if (existingId.length > 0) {
+        await connection.rollback();
+        return res.status(409).json({ message: "ID Company Profile sudah digunakan." });
+      }
+    } else {
+      const [[{ nextId }]] = await connection.query(
+        `SELECT COALESCE(MAX(id_company_profile), 0) + 1 AS nextId FROM company_profile`
+      );
+      newCompanyProfileId = nextId;
+    }
+
+    await connection.query(
+      `INSERT INTO company_profile
+       (id_company_profile, company_name, address, phone_number, email, username, id_user, password)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        newCompanyProfileId,
+        company_name.trim(),
+        address.trim(),
+        phone_number.trim(),
+        emailNormalized,
+        usernameNormalized,
+        id_user ? parseInt(id_user) : null,
+        password
+      ]
+    );
+
+    const [newMitra] = await connection.query(
+      `SELECT id_company_profile, company_name, address, phone_number, email, username, id_user
+       FROM company_profile
+       WHERE id_company_profile = ?`,
+      [newCompanyProfileId]
+    );
+
+    await connection.commit();
+
+    res.status(201).json({
+      message: "Mitra berhasil ditambahkan",
+      data: newMitra[0]
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ error: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
+// UC12 Menghapus Mitra
+export const deleteMitra = async (req, res) => {
+  try {
+    const { id_company_profile } = req.params;
+
+    if (!id_company_profile) {
+      return res.status(400).json({ message: "ID Company Profile wajib diisi." });
+    }
+
+    const [mitraRows] = await db.query(
+      `SELECT id_company_profile, company_name, email FROM company_profile WHERE id_company_profile = ?`,
+      [parseInt(id_company_profile)]
+    );
+
+    if (mitraRows.length === 0) {
+      return res.status(404).json({ message: "Mitra tidak ditemukan." });
+    }
+
+    const [[hotelCount]] = await db.query(
+      `SELECT COUNT(*) AS total FROM list_hotel WHERE id_company_profile = ?`,
+      [parseInt(id_company_profile)]
+    );
+
+    const [[reservationCount]] = await db.query(
+      `SELECT COUNT(*) AS total FROM history_purchase WHERE id_company_profile = ?`,
+      [parseInt(id_company_profile)]
+    );
+
+    if (hotelCount.total > 0 || reservationCount.total > 0) {
+      return res.status(409).json({
+        message: "Mitra tidak bisa dihapus karena masih memiliki hotel atau riwayat reservasi.",
+        data: {
+          total_hotel: hotelCount.total,
+          total_reservasi: reservationCount.total
+        }
+      });
+    }
+
+    await db.query(
+      `DELETE FROM company_profile WHERE id_company_profile = ?`,
+      [parseInt(id_company_profile)]
+    );
+
+    res.json({
+      message: "Mitra berhasil dihapus",
+      data: mitraRows[0]
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// UC17 Melihat Pendapatan
+export const getRevenue = async (req, res) => {
+  try {
+    const { id_company_profile } = req.params;
+    const { start_date, end_date, id_list_hotel } = req.query;
+
+    if (!id_company_profile) {
+      return res.status(400).json({ message: "ID Company Profile wajib diisi." });
+    }
+
+    const [mitraRows] = await db.query(
+      `SELECT id_company_profile, company_name FROM company_profile WHERE id_company_profile = ?`,
+      [parseInt(id_company_profile)]
+    );
+
+    if (mitraRows.length === 0) {
+      return res.status(404).json({ message: "Mitra tidak ditemukan." });
+    }
+
+    let where = `WHERE hp.id_company_profile = ? AND hp.status <> 'cancelled'`;
+    const params = [parseInt(id_company_profile)];
+
+    if (id_list_hotel) {
+      where += ` AND lh.id_list_hotel = ?`;
+      params.push(parseInt(id_list_hotel));
+    }
+
+    if (start_date) {
+      where += ` AND hp.purchase_date >= ?`;
+      params.push(start_date);
+    }
+
+    if (end_date) {
+      where += ` AND hp.purchase_date < DATE_ADD(?, INTERVAL 1 DAY)`;
+      params.push(end_date);
+    }
+
+    const [[summary]] = await db.query(
+      `SELECT
+        COUNT(hp.id_history) AS total_transaksi,
+        COALESCE(SUM(hp.amount), 0) AS total_pendapatan,
+        COALESCE(AVG(hp.amount), 0) AS rata_rata_transaksi
+      FROM history_purchase hp
+      JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+      ${where}`,
+      params
+    );
+
+    const [byHotel] = await db.query(
+      `SELECT
+        lh.id_list_hotel,
+        lh.hotel_name,
+        COUNT(hp.id_history) AS total_transaksi,
+        COALESCE(SUM(hp.amount), 0) AS total_pendapatan
+      FROM history_purchase hp
+      JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+      ${where}
+      GROUP BY lh.id_list_hotel, lh.hotel_name
+      ORDER BY total_pendapatan DESC`,
+      params
+    );
+
+    res.json({
+      message: "Pendapatan mitra berhasil diambil",
+      data: {
+        mitra: mitraRows[0],
+        filter: {
+          start_date: start_date || null,
+          end_date: end_date || null,
+          id_list_hotel: id_list_hotel ? parseInt(id_list_hotel) : null
+        },
+        summary: {
+          total_transaksi: summary.total_transaksi,
+          total_pendapatan: parseFloat(summary.total_pendapatan),
+          rata_rata_transaksi: parseFloat(summary.rata_rata_transaksi)
+        },
+        by_hotel: byHotel.map(item => ({
+          ...item,
+          total_pendapatan: parseFloat(item.total_pendapatan)
+        }))
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

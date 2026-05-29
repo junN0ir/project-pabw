@@ -358,3 +358,138 @@ export const getAllReservations = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// UC6 Memesan Kamar Hotel
+export const createReservation = async (req, res) => {
+  const connection = await db.getConnection();
+
+  try {
+    const { id_user, id_list_kamar, checkin_time, checkout_time } = req.body;
+
+    if (!id_user || !id_list_kamar || !checkin_time || !checkout_time) {
+      return res.status(400).json({
+        message: "id_user, id_list_kamar, checkin_time, dan checkout_time wajib diisi."
+      });
+    }
+
+    const checkinDate = new Date(checkin_time);
+    const checkoutDate = new Date(checkout_time);
+
+    if (isNaN(checkinDate.getTime()) || isNaN(checkoutDate.getTime())) {
+      return res.status(400).json({ message: "Format checkin_time atau checkout_time tidak valid." });
+    }
+
+    if (checkoutDate <= checkinDate) {
+      return res.status(400).json({ message: "checkout_time harus lebih besar dari checkin_time." });
+    }
+
+    await connection.beginTransaction();
+
+    const [userRows] = await connection.query(
+      `SELECT id_user, name, email FROM user WHERE id_user = ?`,
+      [parseInt(id_user)]
+    );
+
+    if (userRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: "User tidak ditemukan." });
+    }
+
+    const [roomRows] = await connection.query(
+      `SELECT
+        lk.id_list_kamar,
+        lk.room_number,
+        lk.price,
+        lk.status,
+        lh.id_list_hotel,
+        lh.id_company_profile,
+        lh.hotel_name,
+        lh.location,
+        dk.type_room,
+        dk.capacity
+      FROM list_kamar lk
+      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
+      WHERE lk.id_list_kamar = ?
+      FOR UPDATE`,
+      [parseInt(id_list_kamar)]
+    );
+
+    if (roomRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: "Kamar tidak ditemukan." });
+    }
+
+    const room = roomRows[0];
+
+    if (room.status !== "available") {
+      await connection.rollback();
+      return res.status(409).json({ message: "Kamar tidak tersedia untuk dipesan." });
+    }
+
+    const oneDayMs = 1000 * 60 * 60 * 24;
+    const totalDays = Math.max(1, Math.ceil((checkoutDate - checkinDate) / oneDayMs));
+    const amount = parseFloat(room.price) * totalDays;
+
+    const formatMysqlDateTime = (date) => date.toISOString().slice(0, 19).replace("T", " ");
+
+    const [result] = await connection.query(
+      `INSERT INTO history_purchase
+       (id_user, id_company_profile, id_list_kamar, purchase_date, checkin_time, checkout_time, amount, status)
+       VALUES (?, ?, ?, NOW(), ?, ?, ?, 'confirmed')`,
+      [
+        parseInt(id_user),
+        room.id_company_profile,
+        parseInt(id_list_kamar),
+        formatMysqlDateTime(checkinDate),
+        formatMysqlDateTime(checkoutDate),
+        amount
+      ]
+    );
+
+    await connection.query(
+      `UPDATE list_kamar SET status = 'not available' WHERE id_list_kamar = ?`,
+      [parseInt(id_list_kamar)]
+    );
+
+    const [reservationRows] = await connection.query(
+      `SELECT
+        hp.id_history,
+        hp.purchase_date,
+        hp.checkin_time,
+        hp.checkout_time,
+        hp.amount,
+        hp.status,
+        lk.room_number,
+        lh.hotel_name,
+        lh.location,
+        dk.type_room,
+        dk.capacity,
+        u.name AS customer_name,
+        u.email AS customer_email
+      FROM history_purchase hp
+      JOIN user u ON hp.id_user = u.id_user
+      JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
+      WHERE hp.id_history = ?`,
+      [result.insertId]
+    );
+
+    await connection.commit();
+
+    res.status(201).json({
+      message: "Reservasi kamar berhasil dibuat",
+      data: {
+        ...reservationRows[0],
+        total_malam: totalDays
+      }
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ error: error.message });
+  } finally {
+    connection.release();
+  }
+};
