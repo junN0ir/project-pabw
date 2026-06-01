@@ -42,11 +42,17 @@ const routes = [
     component: () => import('@/views/HomeView.vue')
   },
   {
-  path: '/admin',
-  name: 'Admin',
-  component: () => import('@/views/AdminView.vue'),
-  meta: { requiresAuth: true, requiresAdmin: true }
-}
+    path: '/admin',
+    name: 'Admin',
+    component: () => import('@/views/AdminView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/mitra',
+    name: 'Mitra',
+    component: () => import('@/views/MitraView.vue'),
+    meta: { requiresAuth: true, requiresMitra: true }
+  }
 ]
 
 const router = createRouter({
@@ -68,6 +74,9 @@ router.beforeEach((to, from, next) => {
     next({ name: 'Home' })
   } else if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
     // Redirect jika bukan admin
+    next({ name: 'Home' })
+  } else if (to.meta.requiresMitra && auth.user?.role !== 'mitra') {
+    // Redirect jika bukan mitra
     next({ name: 'Home' })
   } else {
     next()

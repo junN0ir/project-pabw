@@ -11,8 +11,9 @@
           <RouterLink to="/hotels" @click="closeMenu">Hotel</RouterLink>
 
           <template v-if="auth.isLoggedIn">
-            <RouterLink to="/reservations" @click="closeMenu">Reservasi Saya</RouterLink>
+            <RouterLink v-if="!auth.isMitra" to="/reservations" @click="closeMenu">Reservasi Saya</RouterLink>
             <RouterLink v-if="auth.isAdmin" to="/admin" class="admin-link" @click="closeMenu">Admin Dashboard</RouterLink>
+            <RouterLink v-if="auth.isMitra" to="/mitra" class="mitra-link" @click="closeMenu">Dashboard Mitra</RouterLink>
             <div class="user-menu" @click.stop="toggleUserMenu">
               <div class="user-avatar">{{ auth.user.name.charAt(0) }}</div>
               <span class="user-name">{{ auth.user.name.split(' ')[0] }}</span>
@@ -192,6 +193,24 @@ onUnmounted(() => {
 
 .admin-link::after { display: none !important; }
 
+.mitra-link {
+  background: #1a7a6e !important;
+  color: #fff !important;
+  padding: .5rem 1.3rem !important;
+  border-radius: 3px;
+  font-size: .75rem !important;
+  letter-spacing: 2px;
+  font-weight: 700 !important;
+  transition: all .3s !important;
+}
+
+.mitra-link:hover {
+  background: #145f56 !important;
+  transform: translateY(-2px);
+}
+
+.mitra-link::after { display: none !important; }
+
 /* User menu */
 .user-menu {
   display: flex; align-items: center; gap: .5rem;
@@ -276,6 +295,14 @@ onUnmounted(() => {
 
   .admin-link {
     background: var(--accent) !important;
+    padding: .9rem 1.5rem !important;
+    border-radius: 0 !important;
+    border-bottom: 1px solid rgba(255,255,255,.05) !important;
+    font-size: .9rem !important;
+  }
+
+  .mitra-link {
+    background: #1a7a6e !important;
     padding: .9rem 1.5rem !important;
     border-radius: 0 !important;
     border-bottom: 1px solid rgba(255,255,255,.05) !important;

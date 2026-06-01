@@ -1,11 +1,11 @@
 <template>
   <AppHeader />
-  <main :class="{ 'admin-layout': isAdminPage }">
+  <main :class="{ 'admin-layout': isAdminPage || isMitraPage }">
     <RouterView />
   </main>
-  <AppFooter v-if="!isAdminPage" />
+  <AppFooter v-if="!isAdminPage && !isMitraPage" />
 
-  <template v-if="!isDetailPage && !isAdminPage">
+  <template v-if="!isDetailPage && !isAdminPage && !isMitraPage">
     <BookingModal v-if="bookingStore.showBookingModal" />
     <ConfirmationModal v-if="bookingStore.showConfirmationModal" />
   </template>
@@ -26,6 +26,8 @@ const route = useRoute()
 const isDetailPage = computed(() => route.name === 'HotelDetail')
 
 const isAdminPage = computed(() => route.name === 'Admin')
+
+const isMitraPage = computed(() => route.name === 'Mitra')
 </script>
 
 <style>

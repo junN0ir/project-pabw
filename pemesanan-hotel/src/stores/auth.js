@@ -23,6 +23,15 @@ export const useAuthStore = defineStore('auth', () => {
       phone: '08000000000',
       joinDate: '2024-01-01'
     }
+    ,{
+    id: 3,
+    name: 'Mitra Hotel',
+    email: 'mitra@email.com',
+    password: 'mitra123',
+    role: 'mitra',
+    phone: '081234567891',
+    joinDate: '2024-01-01'
+  }
   ]
 
   function login(email, password) {

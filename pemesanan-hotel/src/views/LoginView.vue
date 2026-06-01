@@ -109,7 +109,14 @@ async function handleLogin() {
   const result = auth.login(loginForm.value.email, loginForm.value.password)
   loading.value = false
   if (result.success) {
-    router.push(route.query.redirect || '/')
+    const role = auth.user?.role
+    if (role === 'mitra') {
+      router.push('/mitra')
+    } else if (role === 'admin') {
+      router.push('/admin')
+    } else {
+      router.push(route.query.redirect || '/')
+    }
   } else {
     error.value = result.message
   }
