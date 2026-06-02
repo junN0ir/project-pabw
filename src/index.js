@@ -10,6 +10,7 @@ import bookingRoutes from "./routes/booking.js";
 import checkoutRoutes from "./routes/checkout.js";
 import mitraRoutes from "./routes/mitraRoutes.js";
 import ratingRoutes from "./routes/ratingRoutes.js";
+import recommendationRoutes from "./routes/recommendationRoutes.js";
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use("/booking", bookingRoutes);
 app.use("/checkout", checkoutRoutes);
 app.use(mitraRoutes);
 app.use(ratingRoutes);
+app.use(recommendationRoutes);
 
 const PORT = process.env.PORT || 3000;
 
