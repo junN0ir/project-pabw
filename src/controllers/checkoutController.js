@@ -150,7 +150,7 @@ class CheckoutController {
                  FROM history_purchase hp
                  JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
                  JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-                 WHERE hp.id_user = ? AND hp.status = 'confirmed'
+                 WHERE hp.id_user = ? AND hp.status = 'checkout'
                  ORDER BY hp.checkout_time DESC`,
                 [id_user]
             );

@@ -41,14 +41,6 @@ class CheckinController {
 
         const reservationData = reservation[0];
 
-        if (reservationData.room_status !== "available") {
-            await connection.rollback();
-
-            return errorResponse({
-                message: "Kamar tidak tersedia untuk checkin"
-            });
-        }
-
         const bookedCheckinTime = new Date(reservationData.checkin_time);
         const currentTime = new Date(checkin_time || Date.now());
 
@@ -86,9 +78,8 @@ class CheckinController {
 
         const [updateRoom] = await connection.query(
             `UPDATE list_kamar
-             SET status = 'not available'
-             WHERE id_list_kamar = ?
-             AND status = 'available'`,
+            SET status = 'not available'
+            WHERE id_list_kamar = ?`,
             [reservationData.id_list_kamar]
         );
 

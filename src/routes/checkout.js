@@ -20,7 +20,7 @@ router.get("/details", async (req, res) => {
 });
 
 // UC21 - Melakukan Checkout
-router.put("/checkout/reservasi/:id_history/checkout", CheckoutController.performCheckout);
+router.put("/reservasi/:id_history/checkout", CheckoutController.performCheckout);
 
 // GET /checkout/history?id_user=1
 router.get("/history", async (req, res) => {
