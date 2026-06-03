@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
 // pengganti trigger register
 export const register = async (req, res) => {
@@ -20,7 +20,7 @@ export const register = async (req, res) => {
     const emailNormalized = email.toLowerCase().trim();
 
     // Email unik - cek di tabel user
-    const [existing] = await db.query(
+    const [existing] = await pool.query(
       `SELECT id_user FROM user WHERE email = ?`,
       [emailNormalized]
     );
@@ -30,7 +30,7 @@ export const register = async (req, res) => {
     }
 
     // Insert ke tabel user dengan role customer
-    const [result] = await db.query(
+    const [result] = await pool.query(
       `INSERT INTO user (name, email, password, phone_number, role) VALUES (?, ?, ?, ?, ?)`,
       [name.trim(), emailNormalized, password, phone_number || "", "customer"]
     );
@@ -74,7 +74,7 @@ export const login = async (req, res) => {
     if (isNumeric) {
       // LOGIN SEBAGAI MITRA
       const id_company_profile = parseInt(identifier, 10);
-      const [mitraRows] = await db.query(
+      const [mitraRows] = await pool.query(
         `SELECT * FROM company_profile WHERE id_company_profile = ?`,
         [id_company_profile]
       );
@@ -103,7 +103,7 @@ export const login = async (req, res) => {
       // LOGIN SEBAGAI CUSTOMER
       const emailNormalized = identifier.toLowerCase().trim();
 
-      const [customerRows] = await db.query(
+      const [customerRows] = await pool.query(
         `SELECT id_user, name, email, password, phone_number, role FROM user WHERE email = ? AND role = 'customer'`,
         [emailNormalized]
       );
@@ -129,7 +129,7 @@ export const login = async (req, res) => {
     }
 
     // Cek apakah sudah ada session aktif
-    const [existingSession] = await db.query(
+    const [existingSession] = await pool.query(
       `SELECT id_login, last_activity FROM session_login 
        WHERE id_user = ? AND status = 'active'
        ORDER BY login_time DESC LIMIT 1`,
@@ -148,7 +148,7 @@ export const login = async (req, res) => {
         });
       } else {
         // Session sudah expired (lebih dari 5 menit tidak ada aktivitas), auto logout
-        await db.query(
+        await pool.query(
           `UPDATE session_login 
            SET status = 'inactive', logout_time = NOW() 
            WHERE id_login = ?`,
@@ -158,7 +158,7 @@ export const login = async (req, res) => {
     }
 
     // Simpan session login baru
-    await db.query(
+    await pool.query(
       `INSERT INTO session_login (id_user, user_type, status, login_time, last_activity, logout_time)
        VALUES (?, ?, 'active', NOW(), NOW(), NULL)`,
       [user.id, userType]
@@ -201,7 +201,7 @@ export const forgotPassword = async (req, res) => {
     const targets = [];
 
     if (!userTypeNormalized || userTypeNormalized === "customer") {
-      const [customerRows] = await db.query(
+      const [customerRows] = await pool.query(
         `SELECT id_user, name, email FROM user WHERE email = ? AND role = 'customer'`,
         [emailNormalized]
       );
@@ -212,7 +212,7 @@ export const forgotPassword = async (req, res) => {
     }
 
     if (!userTypeNormalized || userTypeNormalized === "mitra") {
-      const [mitraRows] = await db.query(
+      const [mitraRows] = await pool.query(
         `SELECT id_company_profile, company_name, email FROM company_profile WHERE email = ?`,
         [emailNormalized]
       );
@@ -235,7 +235,7 @@ export const forgotPassword = async (req, res) => {
     const target = targets[0];
 
     if (target.type === "customer") {
-      await db.query(
+      await pool.query(
         `UPDATE user SET password = ? WHERE id_user = ?`,
         [new_password, target.data.id_user]
       );
@@ -250,7 +250,7 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    await db.query(
+    await pool.query(
       `UPDATE company_profile SET password = ? WHERE id_company_profile = ?`,
       [new_password, target.data.id_company_profile]
     );

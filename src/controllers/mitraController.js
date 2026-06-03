@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
 // UC14 - Mengubah Deskripsi Hotel
 export const updateHotelDescription = async (req, res) => {
@@ -11,7 +11,7 @@ export const updateHotelDescription = async (req, res) => {
     }
 
     // Cek hotel ada
-    const [hotelRows] = await db.query(
+    const [hotelRows] = await pool.query(
       `SELECT id_list_hotel, id_company_profile, hotel_name, location, contact_person, contact_email, contact_phone
        FROM list_hotel WHERE id_list_hotel = ?`,
       [parseInt(id_list_hotel)]
@@ -37,14 +37,14 @@ export const updateHotelDescription = async (req, res) => {
     const newContactEmail  = contact_email   ? contact_email.trim()   : hotel.contact_email;
     const newContactPhone  = contact_phone   ? contact_phone.trim()   : hotel.contact_phone;
 
-    await db.query(
+    await pool.query(
       `UPDATE list_hotel
        SET hotel_name = ?, location = ?, contact_person = ?, contact_email = ?, contact_phone = ?
        WHERE id_list_hotel = ?`,
       [newHotelName, newLocation, newContactPerson, newContactEmail, newContactPhone, parseInt(id_list_hotel)]
     );
 
-    const [updated] = await db.query(
+    const [updated] = await pool.query(
       `SELECT lh.id_list_hotel, lh.hotel_name, lh.location, lh.contact_person, lh.contact_email, lh.contact_phone,
               cp.company_name
        FROM list_hotel lh
@@ -75,7 +75,7 @@ export const updateRoomCategory = async (req, res) => {
     }
 
     // Cek detail_kamar ada
-    const [detailRows] = await db.query(
+    const [detailRows] = await pool.query(
       `SELECT id_detail_kamar, type_room, description, facility, capacity
        FROM detail_kamar WHERE id_detail_kamar = ?`,
       [parseInt(id_detail_kamar)]
@@ -86,7 +86,7 @@ export const updateRoomCategory = async (req, res) => {
     }
 
     // Cek kategori kamar ini dipakai oleh hotel milik mitra
-    const [ownerCheck] = await db.query(
+    const [ownerCheck] = await pool.query(
       `SELECT DISTINCT lh.id_company_profile
        FROM list_kamar lk
        JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
@@ -112,14 +112,14 @@ export const updateRoomCategory = async (req, res) => {
     const newFacility    = facility     ? facility.trim()    : detail.facility;
     const newCapacity    = capacity !== undefined ? parseInt(capacity) : detail.capacity;
 
-    await db.query(
+    await pool.query(
       `UPDATE detail_kamar
        SET type_room = ?, description = ?, facility = ?, capacity = ?
        WHERE id_detail_kamar = ?`,
       [newTypeRoom, newDescription, newFacility, newCapacity, parseInt(id_detail_kamar)]
     );
 
-    const [updated] = await db.query(
+    const [updated] = await pool.query(
       `SELECT id_detail_kamar, type_room, description, facility, capacity
        FROM detail_kamar WHERE id_detail_kamar = ?`,
       [parseInt(id_detail_kamar)]
@@ -157,7 +157,7 @@ export const updateRoomStatus = async (req, res) => {
     }
 
     // Cek kamar ada
-    const [roomRows] = await db.query(
+    const [roomRows] = await pool.query(
       `SELECT lk.id_list_kamar, lk.room_number, lk.status, lk.price,
               lh.id_company_profile, lh.hotel_name,
               dk.type_room
@@ -183,7 +183,7 @@ export const updateRoomStatus = async (req, res) => {
       return res.status(400).json({ message: `Status kamar sudah '${normalizedStatus}', tidak ada perubahan.` });
     }
 
-    await db.query(
+    await pool.query(
       `UPDATE list_kamar SET status = ? WHERE id_list_kamar = ?`,
       [normalizedStatus, parseInt(id_list_kamar)]
     );
@@ -208,7 +208,7 @@ export const updateRoomStatus = async (req, res) => {
 
 // UC11 Menambahkan Mitra
 export const addMitra = async (req, res) => {
-  const connection = await db.getConnection();
+  const connection = await pool.getConnection();
 
   try {
     const {
@@ -331,7 +331,7 @@ export const deleteMitra = async (req, res) => {
       return res.status(400).json({ message: "ID Company Profile wajib diisi." });
     }
 
-    const [mitraRows] = await db.query(
+    const [mitraRows] = await pool.query(
       `SELECT id_company_profile, company_name, email FROM company_profile WHERE id_company_profile = ?`,
       [parseInt(id_company_profile)]
     );
@@ -340,12 +340,12 @@ export const deleteMitra = async (req, res) => {
       return res.status(404).json({ message: "Mitra tidak ditemukan." });
     }
 
-    const [[hotelCount]] = await db.query(
+    const [[hotelCount]] = await pool.query(
       `SELECT COUNT(*) AS total FROM list_hotel WHERE id_company_profile = ?`,
       [parseInt(id_company_profile)]
     );
 
-    const [[reservationCount]] = await db.query(
+    const [[reservationCount]] = await pool.query(
       `SELECT COUNT(*) AS total FROM history_purchase WHERE id_company_profile = ?`,
       [parseInt(id_company_profile)]
     );
@@ -360,7 +360,7 @@ export const deleteMitra = async (req, res) => {
       });
     }
 
-    await db.query(
+    await pool.query(
       `DELETE FROM company_profile WHERE id_company_profile = ?`,
       [parseInt(id_company_profile)]
     );
@@ -385,7 +385,7 @@ export const getRevenue = async (req, res) => {
       return res.status(400).json({ message: "ID Company Profile wajib diisi." });
     }
 
-    const [mitraRows] = await db.query(
+    const [mitraRows] = await pool.query(
       `SELECT id_company_profile, company_name FROM company_profile WHERE id_company_profile = ?`,
       [parseInt(id_company_profile)]
     );
@@ -412,7 +412,7 @@ export const getRevenue = async (req, res) => {
       params.push(end_date);
     }
 
-    const [[summary]] = await db.query(
+    const [[summary]] = await pool.query(
       `SELECT
         COUNT(hp.id_history) AS total_transaksi,
         COALESCE(SUM(hp.amount), 0) AS total_pendapatan,
@@ -424,7 +424,7 @@ export const getRevenue = async (req, res) => {
       params
     );
 
-    const [byHotel] = await db.query(
+    const [byHotel] = await pool.query(
       `SELECT
         lh.id_list_hotel,
         lh.hotel_name,

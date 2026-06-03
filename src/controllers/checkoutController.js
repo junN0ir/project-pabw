@@ -3,129 +3,85 @@ import { successResponse, errorResponse } from "../models/apiResponse.js";
 
 class CheckoutController {
     // Proses checkout
-    static async performCheckout({
-        id_history,
-        id_user,
-        checkout_time,
-        additional_charges
-    }) {
-        try {
-            // Validasi input
-            if (!id_history || !id_user) {
-                return errorResponse({
-                    message: "id_history dan id_user tidak boleh kosong"
-                });
-            }
+    static async performCheckout(req, res) {
+    const connection = await pool.getConnection();
 
-            // Step 1: Ambil data reservasi yang aktif
-            const [reservation] = await pool.query(
-                `SELECT * FROM history_purchase 
-                 WHERE id_history = ? AND id_user = ? AND status = 'confirmed'`,
-                [id_history, id_user]
-            );
+    try {
+      const { id_history } = req.params;
+      const { checkout_time } = req.body;
 
-            if (reservation.length === 0) {
-                return errorResponse({
-                    message: "Reservasi tidak ditemukan atau sudah dibatalkan"
-                });
-            }
+      if (!id_history) {
+        return res.status(400).json({
+          status: "error",
+          message: "id_history harus disediakan",
+        });
+      }
 
-            // Step 2: Hitung biaya menginap dan validasi
-            const checkinTime = new Date(reservation[0].checkin_time);
-            const scheduledCheckoutTime = new Date(reservation[0].checkout_time);
-            const actualCheckoutTime = new Date(checkout_time || Date.now());
+      await connection.beginTransaction();
 
-            // Hitung durasi menginap
-            const durationMs = actualCheckoutTime - checkinTime;
-            const durationHours = durationMs / (1000 * 60 * 60);
-            const durationDays = Math.ceil(durationHours / 24);
+      const [reservationRows] = await connection.query(
+        `
+        SELECT 
+          hp.id_history,
+          hp.id_list_kamar,
+          hp.status
+        FROM history_purchase hp
+        WHERE hp.id_history = ?
+          AND hp.status = 'checkin'
+        FOR UPDATE
+        `,
+        [id_history]
+      );
 
-            // Hitung biaya tambahan jika checkout melewati jadwal
-            let additionalCost = 0;
-            let isLateCheckout = false;
+      if (reservationRows.length === 0) {
+        await connection.rollback();
 
-            if (actualCheckoutTime > scheduledCheckoutTime) {
-                isLateCheckout = true;
-                const lateHours = Math.ceil((actualCheckoutTime - scheduledCheckoutTime) / (1000 * 60 * 60));
-                // Asumsi late checkout fee Rp 100.000 per jam
-                additionalCost = lateHours * 100000;
-            }
+        return res.status(404).json({
+          status: "error",
+          message: "Reservasi tidak ditemukan atau belum berstatus checkin",
+        });
+      }
 
-            // Tambahkan biaya tambahan jika ada (damage, service, dll)
-            if (additional_charges) {
-                additionalCost += additional_charges;
-            }
+      const reservation = reservationRows[0];
 
-            // Step 3: Validasi checkout dan hitung total (convert ke number)
-            const baseAmount = parseFloat(reservation[0].amount);
-            const totalAmount = baseAmount + additionalCost;
+      await connection.query(
+        `
+        UPDATE history_purchase
+        SET 
+          status = 'checkout',
+          checkout_time = COALESCE(?, NOW())
+        WHERE id_history = ?
+        `,
+        [checkout_time || null, id_history]
+      );
 
-            // Step 4: Update status kamar menjadi available
-            const [updateRoom] = await pool.query(
-                `UPDATE list_kamar SET status = 'available' WHERE id_list_kamar = ?`,
-                [reservation[0].id_list_kamar]
-            );
+      await connection.query(
+        `
+        UPDATE list_kamar
+        SET status = 'available'
+        WHERE id_list_kamar = ?
+        `,
+        [reservation.id_list_kamar]
+      );
 
-            if (updateRoom.affectedRows === 0) {
-                return errorResponse({
-                    message: "Gagal mengupdate status kamar"
-                });
-            }
+      await connection.commit();
 
-            // Step 5: Catat waktu checkout actual di history dengan format MySQL datetime
-            const actualCheckoutDate = new Date(checkout_time || Date.now());
-            const actualCheckoutTimeISO = actualCheckoutDate.toISOString().slice(0, 19).replace('T', ' ');
-            
-            const [updateCheckout] = await pool.query(
-                `UPDATE history_purchase 
-                 SET checkout_time = ?, amount = ?
-                 WHERE id_history = ?`,
-                [actualCheckoutTimeISO, totalAmount, id_history]
-            );
+      return res.status(200).json({
+        status: "success",
+        message: "Checkout berhasil dilakukan",
+      });
+    } catch (error) {
+      await connection.rollback();
 
-            if (updateCheckout.affectedRows === 0) {
-                return errorResponse({
-                    message: "Gagal menyimpan data checkout"
-                });
-            }
-
-            // Step 6: Ambil data checkout final untuk konfirmasi
-            const [checkoutData] = await pool.query(
-                `SELECT hp.*, lh.hotel_name, lh.location
-                 FROM history_purchase hp
-                 JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
-                 JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-                 WHERE hp.id_history = ?`,
-                [id_history]
-            );
-
-            return successResponse({
-                message: 'Checkout berhasil dilakukan',
-                data: {
-                    id_history: id_history,
-                    user_id: id_user,
-                    checkout_status: 'success',
-                    checkout_time: actualCheckoutTimeISO,
-                    duration_days: durationDays,
-                    is_late_checkout: isLateCheckout,
-                    billing: {
-                        base_amount: baseAmount,
-                        additional_charges: additionalCost,
-                        total_amount: totalAmount,
-                        late_checkout_fee: isLateCheckout ? additionalCost : 0,
-                        other_charges: (additional_charges || 0)
-                    },
-                    hotel_info: checkoutData[0],
-                    notification: `Terima kasih telah menginap di ${checkoutData[0]?.hotel_name}. Total pembayaran Rp ${totalAmount.toLocaleString('id-ID')}`
-                }
-            });
-        } catch (error) {
-            console.error("Error:", error.message);
-            return errorResponse({
-                message: error.message
-            });
-        }
+      return res.status(500).json({
+        status: "error",
+        message: "Terjadi kesalahan saat checkout",
+        detail: error.message,
+      });
+    } finally {
+      connection.release();
     }
+  }
 
     // Mendapatkan detail masa menginap sebelum checkout
     static async getCheckoutDetails(id_history, id_user) {

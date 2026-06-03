@@ -1,11 +1,11 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
 // GET session login berdasarkan userId
 export const getSessionByUserId = async (req, res) => {
   try {
     const { id_user } = req.params;
 
-    const [rows] = await db.query(
+    const [rows] = await pool.query(
       `SELECT * FROM session_login WHERE id_user = ? AND status = 'active' ORDER BY login_time DESC LIMIT 1`,
       [parseInt(id_user)]
     );
@@ -40,12 +40,12 @@ export const getActiveSessions = async (req, res) => {
     const limitVal = parseInt(limit);
     const offsetVal = parseInt(offset);
 
-    const [sessions] = await db.query(
+    const [sessions] = await pool.query(
       `SELECT * FROM session_login ${where} ORDER BY last_activity DESC LIMIT ? OFFSET ?`,
       [...params, limitVal, offsetVal]
     );
 
-    const [[{ total }]] = await db.query(
+    const [[{ total }]] = await pool.query(
       `SELECT COUNT(*) as total FROM session_login ${where}`,
       params
     );
@@ -81,13 +81,13 @@ export const getAllSessionsHistory = async (req, res) => {
     const limitVal = parseInt(limit);
     const offsetVal = parseInt(offset);
 
-    // Gunakan db.query() agar LIMIT & OFFSET tidak error
-    const [sessions] = await db.query(
+    // Gunakan pool.query() agar LIMIT & OFFSET tidak error
+    const [sessions] = await pool.query(
       `SELECT * FROM session_login ${where} ORDER BY login_time DESC LIMIT ? OFFSET ?`,
       [...params, limitVal, offsetVal]
     );
 
-    const [[{ total }]] = await db.query(
+    const [[{ total }]] = await pool.query(
       `SELECT COUNT(*) as total FROM session_login ${where}`,
       params
     );

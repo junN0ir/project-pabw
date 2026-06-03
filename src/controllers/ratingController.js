@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
 // UC9 Memberikan Rating ke Hotel
 export const createHotelRating = async (req, res) => {
@@ -17,7 +17,7 @@ export const createHotelRating = async (req, res) => {
       return res.status(400).json({ message: "Rating harus berupa angka 1 sampai 5." });
     }
 
-    const [reservationRows] = await db.query(
+    const [reservationRows] = await pool.query(
       `SELECT
         hp.id_history,
         hp.id_user,
@@ -40,7 +40,7 @@ export const createHotelRating = async (req, res) => {
       });
     }
 
-    await db.query(
+    await pool.query(
       `INSERT INTO hotel_rating (id_user, id_list_hotel, id_history, rating, review)
        VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE rating = VALUES(rating), review = VALUES(review), updated_at = NOW()`,
@@ -53,7 +53,7 @@ export const createHotelRating = async (req, res) => {
       ]
     );
 
-    const [ratingRows] = await db.query(
+    const [ratingRows] = await pool.query(
       `SELECT
         hr.id_rating,
         hr.id_user,
@@ -95,7 +95,7 @@ export const getHotelRatings = async (req, res) => {
     const limitVal = parseInt(limit);
     const offsetVal = parseInt(offset);
 
-    const [[summary]] = await db.query(
+    const [[summary]] = await pool.query(
       `SELECT
         COUNT(*) AS total_rating,
         COALESCE(AVG(rating), 0) AS rata_rata_rating
@@ -104,7 +104,7 @@ export const getHotelRatings = async (req, res) => {
       [parseInt(id_list_hotel)]
     );
 
-    const [ratings] = await db.query(
+    const [ratings] = await pool.query(
       `SELECT
         hr.id_rating,
         hr.rating,

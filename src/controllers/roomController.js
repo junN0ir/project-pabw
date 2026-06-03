@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
 // CREATE kamar baru
 export const createRoom = async (req, res) => {
@@ -23,7 +23,7 @@ export const createRoom = async (req, res) => {
       return res.status(400).json({ message: "Hotel ID wajib diisi." });
     }
 
-    const [hotelRows] = await db.query(
+    const [hotelRows] = await pool.query(
       `SELECT id_list_hotel FROM list_hotel WHERE id_list_hotel = ?`,
       [parseInt(id_list_hotel)]
     );
@@ -33,7 +33,7 @@ export const createRoom = async (req, res) => {
     }
 
     // PERBAIKAN: Ganti id_detail menjadi id_detail_kamar
-    const [detailRows] = await db.query(
+    const [detailRows] = await pool.query(
       `SELECT id_detail_kamar FROM detail_kamar WHERE id_detail_kamar = ?`,
       [parseInt(id_detail_kamar)]
     );
@@ -42,7 +42,7 @@ export const createRoom = async (req, res) => {
       return res.status(404).json({ message: "Detail kamar tidak ditemukan." });
     }
 
-    const [existingRoom] = await db.query(
+    const [existingRoom] = await pool.query(
       `SELECT id_list_kamar FROM list_kamar WHERE room_number = ? AND id_list_hotel = ?`,
       [room_number.trim(), parseInt(id_list_hotel)]
     );
@@ -53,13 +53,13 @@ export const createRoom = async (req, res) => {
 
     const roomStatus = status ? status.toUpperCase() : "AVAILABLE";
 
-    const [result] = await db.query(
+    const [result] = await pool.query(
       `INSERT INTO list_kamar (id_list_hotel, id_detail_kamar, room_number, price, status) 
        VALUES (?, ?, ?, ?, ?)`,
       [parseInt(id_list_hotel), parseInt(id_detail_kamar), room_number.trim(), parseFloat(price), roomStatus]
     );
 
-    const [newRoom] = await db.query(
+    const [newRoom] = await pool.query(
       `SELECT k.id_list_kamar, k.room_number, k.price, k.status, lh.hotel_name, dk.type_room, dk.description,dk.facility, dk.capacity 
        FROM list_kamar k
        JOIN list_hotel lh ON k.id_list_hotel = lh.id_list_hotel
@@ -105,7 +105,7 @@ export const getRoomCategories = async (req, res) => {
 
     query += ` ORDER BY dk.type_room ASC`;
 
-    const [categories] = await db.query(query, params);
+    const [categories] = await pool.query(query, params);
 
     res.json({
       message: "Kategori kamar berhasil diambil",
@@ -160,7 +160,7 @@ export const getAvailableRooms = async (req, res) => {
     const limitVal = parseInt(limit);
     const offsetVal = parseInt(offset);
 
-    const [rooms] = await db.query(
+    const [rooms] = await pool.query(
       `SELECT
         lk.id_list_kamar,
         lk.room_number,
@@ -183,7 +183,7 @@ export const getAvailableRooms = async (req, res) => {
       [...params, limitVal, offsetVal]
     );
 
-    const [[{ total }]] = await db.query(
+    const [[{ total }]] = await pool.query(
       `SELECT COUNT(*) AS total
        FROM list_kamar lk
        JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
@@ -229,7 +229,7 @@ export const getRoomAvailability = async (req, res) => {
       params.push(parseInt(id_list_hotel));
     }
 
-    const [summary] = await db.query(
+    const [summary] = await pool.query(
       `SELECT
         lh.id_list_hotel,
         lh.hotel_name,
@@ -247,7 +247,7 @@ export const getRoomAvailability = async (req, res) => {
     let rooms = [];
 
     if (include_rooms === "true") {
-      const [roomRows] = await db.query(
+      const [roomRows] = await pool.query(
         `SELECT
           lk.id_list_kamar,
           lk.room_number,

@@ -41,7 +41,7 @@ class CheckinController {
 
         const reservationData = reservation[0];
 
-        if (reservationData.room_status !== "avaible") {
+        if (reservationData.room_status !== "available") {
             await connection.rollback();
 
             return errorResponse({
@@ -86,9 +86,9 @@ class CheckinController {
 
         const [updateRoom] = await connection.query(
             `UPDATE list_kamar
-             SET status = 'not avaible'
+             SET status = 'not available'
              WHERE id_list_kamar = ?
-             AND status = 'avaible'`,
+             AND status = 'available'`,
             [reservationData.id_list_kamar]
         );
 
@@ -96,7 +96,7 @@ class CheckinController {
             await connection.rollback();
 
             return errorResponse({
-                message: "Gagal mengupdate status kamar menjadi not avaible"
+                message: "Gagal mengupdate status kamar menjadi not available"
             });
         }
 
@@ -119,7 +119,7 @@ class CheckinController {
                 id_user,
                 id_list_kamar: reservationData.id_list_kamar,
                 status_reservasi: "checkin",
-                status_kamar: "not avaible",
+                status_kamar: "not available",
                 checkin_time: actualCheckinTime,
                 hotel_info: checkinData[0],
                 notification: `Selamat datang di ${checkinData[0]?.hotel_name}. Kamar Anda siap untuk digunakan.`

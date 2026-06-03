@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
 // GET histori reservasi customer
 export const getCustomerReservationHistory = async (req, res) => {
@@ -11,7 +11,7 @@ export const getCustomerReservationHistory = async (req, res) => {
     }
 
     // Cek customer ada atau tidak
-    const [customerRows] = await db.query(
+    const [customerRows] = await pool.query(
       `SELECT id_user FROM user WHERE id_user = ?`,
       [parseInt(id_user)]
     );
@@ -28,7 +28,7 @@ export const getCustomerReservationHistory = async (req, res) => {
       params.push(status.toLowerCase());
     }
 
-    const [reservations] = await db.query(
+    const [reservations] = await pool.query(
       `SELECT 
         hp.id_history, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
         lk.room_number,
@@ -46,7 +46,7 @@ export const getCustomerReservationHistory = async (req, res) => {
       [...params, parseInt(limit), parseInt(offset)]
     );
 
-    const [[{ total }]] = await db.query(
+    const [[{ total }]] = await pool.query(
       `SELECT COUNT(*) as total FROM history_purchase hp ${where}`,
       params
     );
@@ -88,7 +88,7 @@ export const getReservationDetail = async (req, res) => {
       return res.status(400).json({ message: "Customer ID dan History ID wajib diisi." });
     }
 
-    const [rows] = await db.query(
+    const [rows] = await pool.query(
       `SELECT 
         hp.id_history,hp.id_user, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
         c.id_user AS id_user, c.name AS customerName, c.email AS customerEmail, c.phone_number AS customerPhone,
@@ -167,7 +167,7 @@ export const getReservationStats = async (req, res) => {
       return res.status(400).json({ message: "ID User wajib diisi." });
     }
 
-    const [customerRows] = await db.query(
+    const [customerRows] = await pool.query(
       `SELECT id_user FROM user WHERE id_user = ?`,
       [parseInt(id_user)]
     );
@@ -176,7 +176,7 @@ export const getReservationStats = async (req, res) => {
       return res.status(404).json({ message: "User tidak ditemukan." });
     }
 
-    const [[stats]] = await db.query(
+    const [[stats]] = await pool.query(
       `SELECT
         COUNT(*) AS totalReservasi,
         COALESCE(SUM(amount), 0) AS totalBiaya,
@@ -212,7 +212,7 @@ export const getMitraReservationHistory = async (req, res) => {
       return res.status(400).json({ message: "ID Company Profile wajib diisi." });
     }
 
-    const [mitraRows] = await db.query(
+    const [mitraRows] = await pool.query(
       `SELECT id_company_profile FROM company_profile WHERE id_company_profile = ?`,
       [parseInt(id_company_profile)]
     );
@@ -229,7 +229,7 @@ export const getMitraReservationHistory = async (req, res) => {
       params.push(status.toUpperCase());
     }
 
-    const [reservations] = await db.query(
+    const [reservations] = await pool.query(
       `SELECT 
         hp.id_history, hp.id_history, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
         lk.room_number,
@@ -247,7 +247,7 @@ export const getMitraReservationHistory = async (req, res) => {
       [...params, parseInt(limit), parseInt(offset)]
     );
 
-    const [[{ total }]] = await db.query(
+    const [[{ total }]] = await pool.query(
       `SELECT COUNT(*) as total FROM history_purchase hp ${where}`,
       params
     );
@@ -305,7 +305,7 @@ export const getAllReservations = async (req, res) => {
     const limitVal = parseInt(limit);
     const offsetVal = parseInt(offset);
 
-    const [reservations] = await db.query(
+    const [reservations] = await pool.query(
       `SELECT 
         hp.id_history, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
         lk.room_number,
@@ -324,7 +324,7 @@ export const getAllReservations = async (req, res) => {
       [...params, limitVal, offsetVal]
     );
 
-    const [[{ total }]] = await db.query(
+    const [[{ total }]] = await pool.query(
       `SELECT COUNT(*) as total FROM history_purchase hp ${where}`,
       params
     );
@@ -361,7 +361,7 @@ export const getAllReservations = async (req, res) => {
 
 // UC6 Memesan Kamar Hotel
 export const createReservation = async (req, res) => {
-  const connection = await db.getConnection();
+  const connection = await pool.getConnection();
 
   try {
     const { id_user, id_list_kamar, checkin_time, checkout_time } = req.body;

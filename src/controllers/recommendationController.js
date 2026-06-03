@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434/api/chat";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen3:4b-instruct";
@@ -207,7 +207,7 @@ export const recommendHotelForCustomer = async (req, res) => {
       params.push(guestCount);
     }
 
-    const [rows] = await db.query(
+    const [rows] = await pool.query(
       `SELECT
         lh.id_list_hotel,
         lh.hotel_name,
