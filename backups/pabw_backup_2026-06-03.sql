@@ -280,3 +280,22 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-06-03 15:59:03
+
+CREATE TABLE deskripsi_hotel (
+  id_deskripsi_hotel INT AUTO_INCREMENT PRIMARY KEY,
+  id_list_hotel INT NOT NULL,
+  description TEXT NOT NULL,
+  facility TEXT NULL,
+  policy TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_deskripsi_hotel_list_hotel
+    FOREIGN KEY (id_list_hotel)
+    REFERENCES list_hotel(id_list_hotel)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+  CONSTRAINT uq_deskripsi_hotel
+    UNIQUE (id_list_hotel)
+);

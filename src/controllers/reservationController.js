@@ -206,36 +206,70 @@ export const getReservationStats = async (req, res) => {
 export const getMitraReservationHistory = async (req, res) => {
   try {
     const { id_company_profile } = req.params;
-    const { status, limit = 10, offset = 0 } = req.query;
+    const {
+      status,
+      id_list_hotel,
+      limit = 10,
+      offset = 0
+    } = req.query;
 
     if (!id_company_profile) {
-      return res.status(400).json({ message: "ID Company Profile wajib diisi." });
+      return res.status(400).json({
+        message: "ID Company Profile wajib diisi."
+      });
     }
 
+    const idCompanyProfileNumber = parseInt(id_company_profile);
+    const limitNumber = parseInt(limit);
+    const offsetNumber = parseInt(offset);
+
     const [mitraRows] = await pool.query(
-      `SELECT id_company_profile FROM company_profile WHERE id_company_profile = ?`,
-      [parseInt(id_company_profile)]
+      `
+      SELECT id_company_profile
+      FROM company_profile
+      WHERE id_company_profile = ?
+      `,
+      [idCompanyProfileNumber]
     );
 
     if (mitraRows.length === 0) {
-      return res.status(404).json({ message: "Mitra tidak ditemukan." });
+      return res.status(404).json({
+        message: "Mitra tidak ditemukan."
+      });
     }
 
     let where = "WHERE hp.id_company_profile = ?";
-    const params = [parseInt(id_company_profile)];
+    const params = [idCompanyProfileNumber];
 
     if (status) {
       where += " AND hp.status = ?";
-      params.push(status.toUpperCase());
+      params.push(status.toLowerCase());
+    }
+
+    if (id_list_hotel) {
+      where += " AND lh.id_list_hotel = ?";
+      params.push(parseInt(id_list_hotel));
     }
 
     const [reservations] = await pool.query(
-      `SELECT 
-        hp.id_history, hp.id_history, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
+      `
+      SELECT 
+        hp.id_history,
+        hp.purchase_date,
+        hp.checkin_time,
+        hp.checkout_time,
+        hp.amount,
+        hp.status,
+        lk.id_list_kamar,
         lk.room_number,
-        lh.hotel_name, lh.location AS hotel_location,
-        dk.type_room, dk.capacity,
-        c.name AS customerName, c.email AS customerEmail
+        lh.id_list_hotel,
+        lh.hotel_name,
+        lh.location AS hotel_location,
+        dk.type_room,
+        dk.capacity,
+        c.id_user,
+        c.name AS customerName,
+        c.email AS customerEmail
       FROM history_purchase hp
       JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
       JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
@@ -243,41 +277,53 @@ export const getMitraReservationHistory = async (req, res) => {
       JOIN user c ON hp.id_user = c.id_user
       ${where}
       ORDER BY hp.purchase_date DESC
-      LIMIT ? OFFSET ?`,
-      [...params, parseInt(limit), parseInt(offset)]
+      LIMIT ? OFFSET ?
+      `,
+      [...params, limitNumber, offsetNumber]
     );
 
     const [[{ total }]] = await pool.query(
-      `SELECT COUNT(*) as total FROM history_purchase hp ${where}`,
+      `
+      SELECT COUNT(*) AS total
+      FROM history_purchase hp
+      JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
+      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
+      ${where}
+      `,
       params
     );
 
-    res.json({
+    return res.json({
       message: "Histori reservasi mitra berhasil diambil",
-      data: reservations.map(r => ({
+      data: reservations.map((r) => ({
         id_history: r.id_history,
         purchase_date: r.purchase_date,
         checkin_time: r.checkin_time,
         checkout_time: r.checkout_time,
         amount: r.amount,
         status: r.status,
-        room_number: r.room_number,
+        id_list_hotel: r.id_list_hotel,
         hotel_name: r.hotel_name,
+        hotel_location: r.hotel_location,
+        id_list_kamar: r.id_list_kamar,
+        room_number: r.room_number,
         roomType: r.type_room,
         capacity: r.capacity,
-        hotel_location: r.hotel_location,
+        id_user: r.id_user,
         customerName: r.customerName,
         customerEmail: r.customerEmail
       })),
       pagination: {
         total,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
+        limit: limitNumber,
+        offset: offsetNumber
       }
     });
-
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      message: "Terjadi kesalahan saat mengambil histori reservasi mitra.",
+      error: error.message
+    });
   }
 };
 

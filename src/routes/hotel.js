@@ -1,5 +1,10 @@
 import express from "express";
 import HotelController from "../controllers/hotelController.js";
+import {
+  addHotelDescription,
+  getHotelDescription,
+  updateHotelDescription
+} from "../controllers/deskripsiHotelController.js";
 
 const router = express.Router();
 
@@ -26,12 +31,21 @@ router.get("/company/:id", async (req, res) => {
     return res.status(statusCode).json(result);
 });
 
-// UC22 - Menambahkan Deskripsi Hotel
+// Menambahkan Deskripsi Kamar
 router.post("/add_description", async (req, res) => {
     const { type_room, description, facility, capacity } = req.body;
     const result = await HotelController.addRoomDescription({ type_room, description, facility, capacity });
     const statusCode = result.status === "error" ? 400 : 201;
     return res.status(statusCode).json(result);
 });
+
+// Menambahkan Deskripsi Hotel
+router.post("/descriptions", addHotelDescription);
+
+// Melihat Deskripsi Hotel
+router.get("/descriptions/:id_list_hotel", getHotelDescription);
+
+// Mengubah Deskripsi Hotel
+router.put("/descriptions/:id_list_hotel", updateHotelDescription);
 
 export default router;
