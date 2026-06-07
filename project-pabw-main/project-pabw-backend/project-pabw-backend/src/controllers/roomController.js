@@ -135,7 +135,7 @@ export const getAvailableRooms = async (req, res) => {
     }
 
     const params = [parseInt(id_list_hotel)];
-    let where = `WHERE lk.id_list_hotel = ? AND lk.status = 'available'`;
+    let where = `WHERE lk.id_list_hotel = ?`;
 
     if (type_room) {
       where += ` AND dk.type_room LIKE ?`;
@@ -161,11 +161,60 @@ export const getAvailableRooms = async (req, res) => {
     const offsetVal = parseInt(offset);
 
     const [rooms] = await pool.query(
-      `SELECT
-        lk.id_list_kamar,
-        lk.room_number,
-        lk.price,
-        lk.status,
+      `
+      SELECT
+        lh.id_list_hotel,
+        lh.hotel_name,
+        lh.location,
+
+        dk.id_detail_kamar,
+        dk.type_room,
+        dk.description,
+        dk.facility,
+        dk.capacity,
+
+        MIN(lk.price) AS price,
+
+        COUNT(lk.id_list_kamar) AS total_rooms,
+
+        SUM(
+          CASE
+            WHEN lk.status = 'available' THEN 1
+            ELSE 0
+          END
+        ) AS available_count,
+
+        SUM(
+          CASE
+            WHEN lk.status <> 'available' THEN 1
+            ELSE 0
+          END
+        ) AS unavailable_count,
+
+        MIN(
+          CASE
+            WHEN lk.status = 'available' THEN lk.id_list_kamar
+            ELSE NULL
+          END
+        ) AS id_list_kamar,
+
+        GROUP_CONCAT(
+          CASE
+            WHEN lk.status = 'available' THEN lk.id_list_kamar
+            ELSE NULL
+          END
+          ORDER BY lk.room_number ASC
+        ) AS available_room_ids
+
+      FROM list_kamar lk
+      JOIN list_hotel lh
+        ON lk.id_list_hotel = lh.id_list_hotel
+      JOIN detail_kamar dk
+        ON lk.id_detail_kamar = dk.id_detail_kamar
+
+      ${where}
+
+      GROUP BY
         lh.id_list_hotel,
         lh.hotel_name,
         lh.location,
@@ -174,25 +223,33 @@ export const getAvailableRooms = async (req, res) => {
         dk.description,
         dk.facility,
         dk.capacity
-      FROM list_kamar lk
-      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
-      ${where}
-      ORDER BY dk.type_room ASC, lk.room_number ASC
-      LIMIT ? OFFSET ?`,
+
+      HAVING available_count > 0
+
+      ORDER BY dk.type_room ASC
+      LIMIT ? OFFSET ?
+      `,
       [...params, limitVal, offsetVal]
     );
 
     const [[{ total }]] = await pool.query(
-      `SELECT COUNT(*) AS total
-       FROM list_kamar lk
-       JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
-       ${where}`,
+      `
+      SELECT COUNT(*) AS total
+      FROM (
+        SELECT dk.id_detail_kamar
+        FROM list_kamar lk
+        JOIN detail_kamar dk
+          ON lk.id_detail_kamar = dk.id_detail_kamar
+        ${where}
+        GROUP BY dk.id_detail_kamar
+        HAVING SUM(CASE WHEN lk.status = 'available' THEN 1 ELSE 0 END) > 0
+      ) grouped_rooms
+      `,
       params
     );
 
     res.json({
-      message: "Kamar tersedia berhasil diambil",
+      message: "Tipe kamar tersedia berhasil diambil",
       data: rooms,
       pagination: {
         total,

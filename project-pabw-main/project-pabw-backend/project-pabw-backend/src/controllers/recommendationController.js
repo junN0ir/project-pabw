@@ -10,46 +10,336 @@ const normalizeText = (value) => {
 const parseNumber = (value) => {
   if (value === undefined || value === null || value === "") return null;
 
-  const parsed = Number(value);
+  if (typeof value === "number") {
+    return Number.isNaN(value) ? null : value;
+  }
 
-  if (Number.isNaN(parsed)) return null;
+  const cleaned = String(value)
+    .toLowerCase()
+    .replace(/rp/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+
+  const jutaMatch = cleaned.match(/^(\d+)(juta|jt)$/);
+
+  if (jutaMatch) {
+    return Number(jutaMatch[1]) * 1000000;
+  }
+
+  const ribuMatch = cleaned.match(/^(\d+)(ribu|rb)$/);
+
+  if (ribuMatch) {
+    return Number(ribuMatch[1]) * 1000;
+  }
+
+  const parsed = Number(cleaned);
+
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
 
   return parsed;
 };
 
-const calculateLocalScore = (room, preferences) => {
-  const budgetMax = parseNumber(preferences.budget_max);
-  const guestCount = parseNumber(preferences.guest_count);
-  const preferredFacilities = Array.isArray(preferences.preferred_facilities)
-    ? preferences.preferred_facilities
-    : [];
+const LOCATION_GROUPS = {
+  jawa: [
+    "jakarta",
+    "bandung",
+    "surabaya",
+    "yogyakarta",
+    "jogja",
+    "semarang",
+    "malang",
+    "bogor",
+    "depok",
+    "bekasi",
+    "tangerang",
+    "banten",
+    "cirebon",
+    "solo",
+    "surakarta"
+  ],
 
-  let score = 0;
+  kalimantan: [
+    "kalimantan",
+    "balikpapan",
+    "samarinda",
+    "banjarmasin",
+    "palangkaraya",
+    "pontianak",
+    "tarakan",
+    "berau"
+  ],
 
-  if (budgetMax && room.price <= budgetMax) {
-    const priceRatio = room.price / budgetMax;
-    score += Math.max(0, 30 - priceRatio * 20);
+  sumatera: [
+    "sumatera",
+    "sumatra",
+    "medan",
+    "padang",
+    "palembang",
+    "pekanbaru",
+    "lampung",
+    "bengkulu",
+    "jambi",
+    "aceh",
+    "batam",
+    "riau"
+  ],
+
+  sulawesi: [
+    "sulawesi",
+    "makassar",
+    "manado",
+    "palu",
+    "kendari",
+    "gorontalo",
+    "parepare"
+  ],
+
+  bali: [
+    "bali",
+    "denpasar",
+    "kuta",
+    "ubud",
+    "seminyak",
+    "canggu",
+    "nusa dua",
+    "sanur"
+  ],
+
+  nusa_tenggara: [
+    "nusa tenggara",
+    "lombok",
+    "mataram",
+    "kupang",
+    "flores",
+    "labuan bajo",
+    "sumbawa",
+    "ntb",
+    "ntt"
+  ],
+
+  maluku_papua: [
+    "maluku",
+    "papua",
+    "ambon",
+    "ternate",
+    "jayapura",
+    "sorong",
+    "manokwari",
+    "merauke"
+  ]
+};
+
+const LOCATION_ALIASES = {
+  "pulau jawa": "jawa",
+  "jawa barat": "jawa",
+  "jawa tengah": "jawa",
+  "jawa timur": "jawa",
+  "dki jakarta": "jawa",
+  "jawa": "jawa",
+  "java": "jawa",
+
+  "pulau kalimantan": "kalimantan",
+  "kalimantan timur": "kalimantan",
+  "kalimantan selatan": "kalimantan",
+  "kalimantan tengah": "kalimantan",
+  "kalimantan barat": "kalimantan",
+  "kalimantan utara": "kalimantan",
+  "kalimantan": "kalimantan",
+  "borneo": "kalimantan",
+
+  "pulau sumatera": "sumatera",
+  "sumatera utara": "sumatera",
+  "sumatera barat": "sumatera",
+  "sumatera selatan": "sumatera",
+  "sumatra utara": "sumatera",
+  "sumatra barat": "sumatera",
+  "sumatra selatan": "sumatera",
+  "sumatera": "sumatera",
+  "sumatra": "sumatera",
+
+  "pulau sulawesi": "sulawesi",
+  "sulawesi selatan": "sulawesi",
+  "sulawesi utara": "sulawesi",
+  "sulawesi tengah": "sulawesi",
+  "sulawesi tenggara": "sulawesi",
+  "sulawesi barat": "sulawesi",
+  "sulawesi": "sulawesi",
+
+  "pulau bali": "bali",
+  "bali": "bali",
+
+  "nusa tenggara barat": "nusa_tenggara",
+  "nusa tenggara timur": "nusa_tenggara",
+  "nusa tenggara": "nusa_tenggara",
+  "ntb": "nusa_tenggara",
+  "ntt": "nusa_tenggara",
+  "lombok": "nusa_tenggara",
+
+  "indonesia timur": "maluku_papua",
+  "maluku": "maluku_papua",
+  "papua": "maluku_papua"
+};
+
+const FACILITY_KEYWORDS = [
+  "wifi",
+  "parkir",
+  "restoran",
+  "kolam renang",
+  "ac",
+  "laundry",
+  "gym",
+  "spa",
+  "sarapan",
+  "taman",
+  "resepsionis",
+  "kamar mandi",
+  "tv",
+  "mini bar"
+];
+
+const getLocationKeywords = (location) => {
+  const normalizedLocation = normalizeText(location);
+
+  if (!normalizedLocation) {
+    return [];
   }
 
-  if (guestCount && room.capacity >= guestCount) {
-    score += 20;
-  }
-
-  const facilityText = normalizeText(room.facility);
-
-  const matchedFacilities = preferredFacilities.filter((facility) => {
-    return facilityText.includes(normalizeText(facility));
+  const matchedAlias = Object.keys(LOCATION_ALIASES).find((alias) => {
+    return normalizedLocation.includes(alias);
   });
 
-  score += matchedFacilities.length * 15;
-
-  if (room.avg_rating > 0) {
-    score += Number(room.avg_rating) * 5;
+  if (matchedAlias) {
+    const groupKey = LOCATION_ALIASES[matchedAlias];
+    return LOCATION_GROUPS[groupKey] || [normalizedLocation];
   }
 
+  const allCityKeywords = Object.values(LOCATION_GROUPS).flat();
+
+  const matchedCityKeywords = allCityKeywords.filter((keyword) => {
+    return normalizedLocation.includes(keyword);
+  });
+
+  if (matchedCityKeywords.length > 0) {
+    return [...new Set([...matchedCityKeywords, normalizedLocation])];
+  }
+
+  return [normalizedLocation];
+};
+
+const addLocationFilter = (whereClauses, params, location) => {
+  const keywords = getLocationKeywords(location);
+
+  if (keywords.length === 0) {
+    return;
+  }
+
+  const keywordClauses = keywords.map(() => {
+    return "(LOWER(lh.location) LIKE ? OR LOWER(lh.hotel_name) LIKE ?)";
+  });
+
+  whereClauses.push(`(${keywordClauses.join(" OR ")})`);
+
+  keywords.forEach((keyword) => {
+    params.push(`%${normalizeText(keyword)}%`);
+    params.push(`%${normalizeText(keyword)}%`);
+  });
+};
+
+const extractBudgetFromPrompt = (prompt) => {
+  const text = normalizeText(prompt);
+
+  const jutaMatch = text.match(/(?:maksimal|max|budget|harga|di bawah|kurang dari)\s*(?:rp\s*)?(\d+)\s*(juta|jt)/);
+
+  if (jutaMatch) {
+    return Number(jutaMatch[1]) * 1000000;
+  }
+
+  const ribuMatch = text.match(/(?:maksimal|max|budget|harga|di bawah|kurang dari)\s*(?:rp\s*)?(\d+)\s*(ribu|rb)/);
+
+  if (ribuMatch) {
+    return Number(ribuMatch[1]) * 1000;
+  }
+
+  const numberMatch = text.match(/(?:maksimal|max|budget|harga|di bawah|kurang dari)\s*(?:rp\s*)?([\d.]+)/);
+
+  if (numberMatch) {
+    return parseNumber(numberMatch[1]);
+  }
+
+  return null;
+};
+
+const extractGuestCountFromPrompt = (prompt) => {
+  const text = normalizeText(prompt);
+
+  const guestMatch = text.match(/(\d+)\s*(orang|tamu|pax|dewasa)/);
+
+  if (guestMatch) {
+    return Number(guestMatch[1]);
+  }
+
+  if (text.includes("keluarga")) {
+    return 4;
+  }
+
+  if (text.includes("pasangan") || text.includes("berdua")) {
+    return 2;
+  }
+
+  return null;
+};
+
+const extractLocationFromPrompt = (prompt) => {
+  const text = normalizeText(prompt);
+
+  const aliasMatch = Object.keys(LOCATION_ALIASES).find((alias) => {
+    return text.includes(alias);
+  });
+
+  if (aliasMatch) {
+    return aliasMatch;
+  }
+
+  const allKeywords = Object.values(LOCATION_GROUPS).flat();
+
+  const cityMatch = allKeywords.find((keyword) => {
+    return text.includes(keyword);
+  });
+
+  return cityMatch || null;
+};
+
+const extractFacilitiesFromPrompt = (prompt) => {
+  const text = normalizeText(prompt);
+
+  return FACILITY_KEYWORDS.filter((facility) => {
+    return text.includes(facility);
+  });
+};
+
+const extractPurposeFromPrompt = (prompt) => {
+  const text = normalizeText(prompt);
+
+  if (text.includes("keluarga")) return "keluarga";
+  if (text.includes("bisnis") || text.includes("kerja")) return "bisnis";
+  if (text.includes("liburan") || text.includes("wisata")) return "liburan";
+  if (text.includes("honeymoon") || text.includes("bulan madu")) return "honeymoon";
+  if (text.includes("transit")) return "transit";
+
+  return null;
+};
+
+const extractPreferencesLocally = (prompt) => {
   return {
-    score: Math.round(score),
-    matched_facilities: matchedFacilities
+    location: extractLocationFromPrompt(prompt),
+    budget_max: extractBudgetFromPrompt(prompt),
+    guest_count: extractGuestCountFromPrompt(prompt),
+    preferred_facilities: extractFacilitiesFromPrompt(prompt),
+    purpose: extractPurposeFromPrompt(prompt)
   };
 };
 
@@ -69,28 +359,140 @@ const extractJsonFromText = (text) => {
   }
 };
 
-const buildFallbackRecommendation = (rankedCandidates, preferences) => {
+const calculateHotelScore = (hotel, preferences) => {
+  const budgetMax = parseNumber(preferences.budget_max);
+  const guestCount = parseNumber(preferences.guest_count);
+  const preferredFacilities = Array.isArray(preferences.preferred_facilities)
+    ? preferences.preferred_facilities
+    : [];
+
+  let score = 0;
+
+  if (budgetMax && hotel.min_price <= budgetMax) {
+    const priceRatio = hotel.min_price / budgetMax;
+    score += Math.max(0, 35 - priceRatio * 20);
+  }
+
+  if (guestCount && hotel.max_capacity >= guestCount) {
+    score += 25;
+  }
+
+  if (hotel.avg_rating > 0) {
+    score += Number(hotel.avg_rating) * 6;
+  }
+
+  const facilityText = normalizeText(hotel.all_facilities);
+
+  const matchedFacilities = preferredFacilities.filter((facility) => {
+    return facilityText.includes(normalizeText(facility));
+  });
+
+  score += matchedFacilities.length * 15;
+
+  if (hotel.available_room_count > 0) {
+    score += Math.min(Number(hotel.available_room_count), 10);
+  }
+
+  return {
+    score: Math.round(score),
+    matched_facilities: matchedFacilities
+  };
+};
+
+const formatHotelRecommendation = (candidate, rank, reasonOverride = null, scoreOverride = null) => {
+  const score = Number.isFinite(Number(scoreOverride))
+    ? Number(scoreOverride)
+    : Number(candidate.local_score) || 0;
+
+  return {
+    rank,
+    id_list_hotel: candidate.id_list_hotel,
+    hotel_name: candidate.hotel_name,
+    location: candidate.location,
+    contact_person: candidate.contact_person,
+    contact_email: candidate.contact_email,
+    contact_phone: candidate.contact_phone,
+
+    min_price: candidate.min_price,
+    max_price: candidate.max_price,
+    price_from: candidate.min_price,
+
+    available_room_count: candidate.available_room_count,
+    available_room_types: candidate.available_room_types,
+    max_capacity: candidate.max_capacity,
+    all_facilities: candidate.all_facilities,
+
+    avg_rating: candidate.avg_rating,
+    total_rating: candidate.total_rating,
+    score,
+
+    reason: reasonOverride || `Hotel ini direkomendasikan karena memiliki ${candidate.available_room_count} kamar tersedia, harga mulai dari Rp ${Number(candidate.min_price).toLocaleString("id-ID")}, kapasitas maksimal ${candidate.max_capacity} tamu, dan fasilitas yang cocok adalah ${candidate.matched_facilities.length > 0 ? candidate.matched_facilities.join(", ") : "belum ada yang cocok secara spesifik"}.`
+  };
+};
+
+const buildDatabaseRecommendation = (rankedCandidates, note = null) => {
   const topCandidates = rankedCandidates.slice(0, 3);
 
   return {
-    recommended_hotels: topCandidates.map((candidate, index) => ({
-      rank: index + 1,
-      id_list_hotel: candidate.id_list_hotel,
-      hotel_name: candidate.hotel_name,
-      location: candidate.location,
-      id_list_kamar: candidate.id_list_kamar,
-      room_number: candidate.room_number,
-      type_room: candidate.type_room,
-      price: candidate.price,
-      capacity: candidate.capacity,
-      facility: candidate.facility,
-      avg_rating: candidate.avg_rating,
-      total_rating: candidate.total_rating,
-      score: candidate.local_score,
-      reason: `Hotel ini dipilih dari database karena kamar masih tersedia, harga sesuai filter, kapasitas memenuhi kebutuhan, dan fasilitas yang cocok adalah ${candidate.matched_facilities.length > 0 ? candidate.matched_facilities.join(", ") : "belum ada yang cocok secara spesifik"}.`
-    })),
-    summary: `Rekomendasi dibuat dari ${rankedCandidates.length} kandidat kamar yang tersedia di database.`,
-    note: "Fallback digunakan karena response Ollama tidak bisa diparse sebagai JSON valid."
+    recommended_hotels: topCandidates.map((candidate, index) => {
+      return formatHotelRecommendation(candidate, index + 1);
+    }),
+    summary: `Rekomendasi dibuat dari ${rankedCandidates.length} hotel yang memiliki kamar tersedia di database.`,
+    note
+  };
+};
+
+const normalizeLlmRecommendation = (llmRecommendation, rankedCandidates) => {
+  const candidateByHotelId = new Map();
+
+  rankedCandidates.forEach((candidate) => {
+    candidateByHotelId.set(String(candidate.id_list_hotel), candidate);
+  });
+
+  const llmItems = Array.isArray(llmRecommendation?.recommended_hotels)
+    ? llmRecommendation.recommended_hotels
+    : [];
+
+  const usedHotelIds = new Set();
+
+  const normalizedItems = [];
+
+  llmItems.forEach((item) => {
+    const hotelId = String(item.id_list_hotel || "");
+
+    if (!hotelId || usedHotelIds.has(hotelId)) {
+      return;
+    }
+
+    const candidate = candidateByHotelId.get(hotelId);
+
+    if (!candidate) {
+      return;
+    }
+
+    usedHotelIds.add(hotelId);
+
+    normalizedItems.push(
+      formatHotelRecommendation(
+        candidate,
+        normalizedItems.length + 1,
+        item.reason || null,
+        item.score
+      )
+    );
+  });
+
+  if (normalizedItems.length === 0) {
+    return buildDatabaseRecommendation(
+      rankedCandidates,
+      "Output Ollama tidak cocok dengan kandidat hotel dari database, sehingga rekomendasi dibuat langsung dari ranking database."
+    );
+  }
+
+  return {
+    recommended_hotels: normalizedItems.slice(0, 3),
+    summary: llmRecommendation?.summary || `Rekomendasi dibuat dari ${rankedCandidates.length} hotel yang memiliki kamar tersedia di database.`,
+    note: llmRecommendation?.note || null
   };
 };
 
@@ -118,43 +520,53 @@ Format output wajib:
 }
 `;
 
-  const ollamaResponse = await fetch(OLLAMA_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      stream: false,
-      format: "json",
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt
-        },
-        {
-          role: "user",
-          content: userPrompt
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    const ollamaResponse = await fetch(OLLAMA_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        stream: false,
+        format: "json",
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt
+          },
+          {
+            role: "user",
+            content: userPrompt
+          }
+        ],
+        options: {
+          temperature: 0.1
         }
-      ],
-      options: {
-        temperature: 0.1
-      }
-    })
-  });
+      }),
+      signal: controller.signal
+    });
 
-  if (!ollamaResponse.ok) {
-    throw new Error(`Gagal ekstrak prompt. Status Ollama: ${ollamaResponse.status}`);
+    clearTimeout(timeout);
+
+    if (!ollamaResponse.ok) {
+      throw new Error(`Gagal ekstrak prompt. Status Ollama: ${ollamaResponse.status}`);
+    }
+
+    const ollamaData = await ollamaResponse.json();
+    const content = ollamaData?.message?.content;
+
+    if (!content) {
+      throw new Error("Response ekstraksi prompt kosong.");
+    }
+
+    return extractJsonFromText(content);
+  } catch {
+    return extractPreferencesLocally(prompt);
   }
-
-  const ollamaData = await ollamaResponse.json();
-  const content = ollamaData?.message?.content;
-
-  if (!content) {
-    throw new Error("Response ekstraksi prompt kosong.");
-  }
-
-  return extractJsonFromText(content);
 };
 
 export const recommendHotelForCustomer = async (req, res) => {
@@ -162,30 +574,31 @@ export const recommendHotelForCustomer = async (req, res) => {
     let requestData = req.body;
 
     if (req.body.prompt && typeof req.body.prompt === "string") {
-    const extractedPreferences = await extractPreferencesFromPrompt(req.body.prompt);
+      const extractedPreferences = await extractPreferencesFromPrompt(req.body.prompt);
 
-    requestData = {
+      requestData = {
         ...extractedPreferences,
         limit: req.body.limit || 30
-    };
+      };
     }
 
     const {
-    location,
-    budget_max,
-    guest_count,
-    preferred_facilities = [],
-    purpose,
-    limit = 30
+      location,
+      budget_max,
+      guest_count,
+      preferred_facilities = [],
+      purpose,
+      limit = 30
     } = requestData;
 
     const budgetMax = parseNumber(budget_max);
-    const guestCount = parseNumber(guest_count);
+    const purposeText = normalizeText(purpose);
+    const inferredGuestCount = parseNumber(guest_count) || (purposeText === "keluarga" ? 4 : null);
     const limitValue = Math.min(parseNumber(limit) || 30, 50);
 
-    if (!location && !budgetMax && !guestCount && preferred_facilities.length === 0) {
+    if (!location && !budgetMax && !inferredGuestCount && preferred_facilities.length === 0 && !purpose) {
       return res.status(400).json({
-        message: "Minimal isi salah satu preferensi: location, budget_max, guest_count, atau preferred_facilities."
+        message: "Minimal isi salah satu preferensi: location, budget_max, guest_count, preferred_facilities, atau purpose."
       });
     }
 
@@ -193,8 +606,7 @@ export const recommendHotelForCustomer = async (req, res) => {
     const params = [];
 
     if (location) {
-      whereClauses.push("lh.location LIKE ?");
-      params.push(`%${location.trim()}%`);
+      addLocationFilter(whereClauses, params, location);
     }
 
     if (budgetMax) {
@@ -202,33 +614,40 @@ export const recommendHotelForCustomer = async (req, res) => {
       params.push(budgetMax);
     }
 
-    if (guestCount) {
+    if (inferredGuestCount) {
       whereClauses.push("dk.capacity >= ?");
-      params.push(guestCount);
+      params.push(inferredGuestCount);
     }
 
     const [rows] = await pool.query(
-      `SELECT
+      `
+      SELECT
         lh.id_list_hotel,
         lh.hotel_name,
         lh.location,
         lh.contact_person,
         lh.contact_email,
         lh.contact_phone,
-        lk.id_list_kamar,
-        lk.room_number,
-        lk.price,
-        lk.status,
-        dk.id_detail_kamar,
-        dk.type_room,
-        dk.description AS room_description,
-        dk.facility,
-        dk.capacity,
+
+        COUNT(DISTINCT lk.id_list_kamar) AS available_room_count,
+        MIN(lk.price) AS min_price,
+        MAX(lk.price) AS max_price,
+        MAX(dk.capacity) AS max_capacity,
+
+        GROUP_CONCAT(DISTINCT dk.type_room ORDER BY dk.type_room SEPARATOR ', ') AS available_room_types,
+        GROUP_CONCAT(DISTINCT dk.facility SEPARATOR ', ') AS all_facilities,
+
         COALESCE(rt.avg_rating, 0) AS avg_rating,
         COALESCE(rt.total_rating, 0) AS total_rating
-      FROM list_kamar lk
-      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
+
+      FROM list_hotel lh
+
+      JOIN list_kamar lk
+        ON lk.id_list_hotel = lh.id_list_hotel
+
+      JOIN detail_kamar dk
+        ON lk.id_detail_kamar = dk.id_detail_kamar
+
       LEFT JOIN (
         SELECT
           id_list_hotel,
@@ -236,56 +655,74 @@ export const recommendHotelForCustomer = async (req, res) => {
           COUNT(*) AS total_rating
         FROM hotel_rating
         GROUP BY id_list_hotel
-      ) rt ON rt.id_list_hotel = lh.id_list_hotel
+      ) rt
+        ON rt.id_list_hotel = lh.id_list_hotel
+
       WHERE ${whereClauses.join(" AND ")}
-      ORDER BY lk.price ASC
-      LIMIT ?`,
+
+      GROUP BY
+        lh.id_list_hotel,
+        lh.hotel_name,
+        lh.location,
+        lh.contact_person,
+        lh.contact_email,
+        lh.contact_phone,
+        rt.avg_rating,
+        rt.total_rating
+
+      ORDER BY min_price ASC
+
+      LIMIT ?
+      `,
       [...params, limitValue]
     );
 
     if (rows.length === 0) {
       return res.status(404).json({
-        message: "Tidak ada hotel atau kamar tersedia yang cocok dengan preferensi dari database.",
+        message: "Tidak ada hotel yang memiliki kamar tersedia sesuai preferensi dari database.",
         preferences: {
           location: location || null,
           budget_max: budgetMax,
-          guest_count: guestCount,
+          guest_count: inferredGuestCount,
           preferred_facilities,
           purpose: purpose || null
         },
-        data: []
+        data: {
+          recommended_hotels: [],
+          summary: "Tidak ada hotel yang cocok dari database."
+        }
       });
     }
 
     const candidates = rows.map((row) => {
-      const localResult = calculateLocalScore(
-        {
-          ...row,
-          price: Number(row.price),
-          avg_rating: Number(row.avg_rating),
-          total_rating: Number(row.total_rating)
-        },
-        requestData
-    );
-
-      return {
+      const hotelData = {
         id_list_hotel: row.id_list_hotel,
         hotel_name: row.hotel_name,
         location: row.location,
         contact_person: row.contact_person,
         contact_email: row.contact_email,
         contact_phone: row.contact_phone,
-        id_list_kamar: row.id_list_kamar,
-        room_number: row.room_number,
-        price: Number(row.price),
-        status: row.status,
-        id_detail_kamar: row.id_detail_kamar,
-        type_room: row.type_room,
-        room_description: row.room_description,
-        facility: row.facility,
-        capacity: row.capacity,
+
+        available_room_count: Number(row.available_room_count),
+        min_price: Number(row.min_price),
+        max_price: Number(row.max_price),
+        max_capacity: Number(row.max_capacity),
+        available_room_types: row.available_room_types || "",
+        all_facilities: row.all_facilities || "",
+
         avg_rating: Number(row.avg_rating),
-        total_rating: Number(row.total_rating),
+        total_rating: Number(row.total_rating)
+      };
+
+      const localResult = calculateHotelScore(hotelData, {
+        ...requestData,
+        budget_max: budgetMax,
+        guest_count: inferredGuestCount,
+        preferred_facilities
+      });
+
+      return {
+        ...hotelData,
         local_score: localResult.score,
         matched_facilities: localResult.matched_facilities
       };
@@ -296,25 +733,30 @@ export const recommendHotelForCustomer = async (req, res) => {
         return b.local_score - a.local_score;
       }
 
-      return a.price - b.price;
+      if (Number(b.avg_rating) !== Number(a.avg_rating)) {
+        return Number(b.avg_rating) - Number(a.avg_rating);
+      }
+
+      return Number(a.min_price) - Number(b.min_price);
     });
 
     const candidatesForLlm = rankedCandidates.slice(0, 10);
 
     const systemPrompt = `
 Kamu adalah modul rekomendasi hotel untuk aplikasi booking hotel.
-Kamu hanya boleh menggunakan data kandidat hotel yang diberikan oleh backend.
-Jangan membuat nama hotel, harga, kamar, fasilitas, rating, atau lokasi yang tidak ada pada kandidat.
-Jawaban wajib berupa JSON valid.
+Kamu hanya boleh memilih hotel dari kandidat yang diberikan backend.
+Jangan membuat nama hotel, harga, fasilitas, rating, lokasi, atau jumlah kamar yang tidak ada di kandidat.
+Jawaban wajib JSON valid.
 Jangan gunakan markdown.
+Rekomendasikan hotel, bukan nomor kamar.
 `;
 
     const userPrompt = JSON.stringify({
-      task: "Pilih maksimal 3 hotel atau kamar terbaik untuk customer berdasarkan preferensi.",
+      task: "Pilih maksimal 3 hotel terbaik untuk customer berdasarkan preferensi.",
       customer_preferences: {
         location: location || null,
         budget_max: budgetMax,
-        guest_count: guestCount,
+        guest_count: inferredGuestCount,
         preferred_facilities,
         purpose: purpose || null
       },
@@ -326,11 +768,10 @@ Jangan gunakan markdown.
             id_list_hotel: "number",
             hotel_name: "string",
             location: "string",
-            id_list_kamar: "number",
-            room_number: "string",
-            type_room: "string",
-            price: "number",
-            capacity: "number",
+            min_price: "number",
+            available_room_count: "number",
+            available_room_types: "string",
+            max_capacity: "number",
             score: "number from 0 to 100",
             reason: "string"
           }
@@ -384,21 +825,23 @@ Jangan gunakan markdown.
         throw new Error("Response Ollama kosong.");
       }
 
-      recommendation = extractJsonFromText(content);
-
+      const parsedRecommendation = extractJsonFromText(content);
+      recommendation = normalizeLlmRecommendation(parsedRecommendation, rankedCandidates);
     } catch (ollamaError) {
-      recommendation = buildFallbackRecommendation(rankedCandidates, requestData);
-      recommendation.ollama_error = ollamaError.message;
+      recommendation = buildDatabaseRecommendation(
+        rankedCandidates,
+        `Ollama tidak berhasil memberi response JSON valid, rekomendasi hotel tetap dibuat dari ranking database. Detail: ${ollamaError.message}`
+      );
     }
 
     return res.json({
-      message: "Rekomendasi hotel berhasil dibuat dari database project dan Ollama.",
-      source: "database_mysql_project_dan_ollama",
+      message: "Rekomendasi hotel berhasil dibuat dari database project.",
+      source: "database_mysql_project_dengan_ollama",
       model: OLLAMA_MODEL,
       preferences: {
         location: location || null,
         budget_max: budgetMax,
-        guest_count: guestCount,
+        guest_count: inferredGuestCount,
         preferred_facilities,
         purpose: purpose || null
       },
@@ -406,7 +849,6 @@ Jangan gunakan markdown.
       candidates_used_by_llm: candidatesForLlm.length,
       data: recommendation
     });
-
   } catch (error) {
     return res.status(500).json({
       message: "Gagal membuat rekomendasi hotel.",

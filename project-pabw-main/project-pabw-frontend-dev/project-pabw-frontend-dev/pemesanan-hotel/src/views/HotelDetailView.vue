@@ -40,7 +40,7 @@
           </div>
           <div class="info-chip">
             <span class="chip-label">Tipe Kamar</span>
-            <span class="chip-value">{{ hotel.rooms.length }} tersedia</span>
+            <span class="chip-value">{{ hotel.rooms.length }} tipe</span>
           </div>
         </div>
         <a href="#rooms" class="btn btn-primary">Pilih Kamar ↓</a>
@@ -58,9 +58,20 @@
         <!-- Fasilitas -->
         <section class="detail-section">
           <h2>Fasilitas</h2>
-          <div class="amenities-grid">
-            <span v-for="a in hotel.amenities" :key="a" class="amenity-tag">{{ a }}</span>
+
+          <div v-if="hotel.facilities?.length" class="facilities-grid">
+            <span
+              v-for="facility in hotel.facilities"
+              :key="facility"
+              class="facility-tag"
+            >
+              {{ facility }}
+            </span>
           </div>
+
+          <p v-else class="empty-info">
+            Fasilitas hotel belum diisi.
+          </p>
         </section>
 
         <!-- Kamar Tersedia -->
@@ -76,25 +87,6 @@
             />
           </div>
         </section>
-
-        <!-- Rating -->
-        <section class="detail-section rating-section">
-          <h2>Beri Rating Hotel Ini</h2>
-          <div v-if="auth.isLoggedIn" class="rating-form">
-            <StarRating v-model="myRating.score" />
-            <textarea
-              v-model="myRating.comment"
-              placeholder="Tuliskan pengalaman Anda..."
-              rows="3"
-            ></textarea>
-            <button class="btn btn-primary" @click="submitRating">Kirim Ulasan</button>
-            <p v-if="ratingSuccess" class="success-msg">✅ Ulasan berhasil dikirim!</p>
-          </div>
-          <div v-else class="rating-login-prompt">
-            <p>Silakan <RouterLink to="/login">masuk</RouterLink> untuk memberikan rating.</p>
-          </div>
-        </section>
-
       </div>
     </div>
   </div>
@@ -146,6 +138,12 @@ onMounted(async () => {
       myRating.value.comment = existing.comment
     }
   }
+})
+
+const totalAvailableRooms = computed(() => {
+  return hotel.value?.rooms?.reduce((total, room) => {
+    return total + (Number(room.availableCount) || 0)
+  }, 0) || 0
 })
 
 function submitRating() {
@@ -271,17 +269,22 @@ const formatCurrency = (amount) =>
 }
 
 /* Fasilitas */
-.amenities-grid { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+.facilities-grid { display: flex; flex-wrap: wrap; gap: 0.7rem; }
 
-.amenity-tag {
+.facility-tag {
   background: var(--bg-light); padding: 6px 16px;
   border-radius: 25px; font-size: 0.88rem;
   color: var(--text-dark); border: 1px solid var(--border-color);
   transition: all 0.2s ease;
 }
 
-.amenity-tag:hover {
+.facility-tag:hover {
   background: var(--primary-color); color: white; border-color: var(--primary-color);
+}
+
+.empty-info {
+  color: var(--text-light);
+  font-size: 0.95rem;
 }
 
 /* Rooms */

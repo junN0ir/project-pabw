@@ -2,206 +2,387 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiGet } from '@/services/api'
 
-const HOTEL_PRESETS = [
-  {
-    image: '/images/hotel-1.jpg',
-    rating: 4.8,
-    reviewCount: 234,
-    priceFrom: 850000,
-    stars: 5,
-    description: 'Hotel bintang 5 dengan pemandangan kota yang menakjubkan. Dilengkapi kolam renang, spa, dan restoran premium.',
-    amenities: ['🏊 Kolam Renang', '💆 Spa', '🍽 Restoran', '🏋 Gym', '🅿 Parkir', '🚐 Antar Jemput'],
-    rooms: [
-      { id: 1, name: 'Kamar Deluxe', price: 850000, capacity: 2, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop', description: 'Kamar nyaman dengan pemandangan kota.', amenities: ['🛏 King Bed', '📶 WiFi', '❄️ AC', '📺 Smart TV'], badge: '🕐 Early Bird', badgeClass: 'early-bird', featured: false, status: 'available' },
-      { id: 2, name: 'Suite Premium', price: 1500000, capacity: 3, image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&h=400&fit=crop', description: 'Suite mewah dengan jacuzzi dan ruang tamu.', amenities: ['🛏 Super King', '📶 WiFi', '🛁 Jacuzzi', '🍽 Sarapan'], badge: '⭐ Unggulan', badgeClass: 'seasonal', featured: true, status: 'available' }
-    ]
-  },
-  {
-    image: '/images/hotel-2.jpg',
-    rating: 4.3,
-    reviewCount: 187,
-    priceFrom: 450000,
-    stars: 3,
-    description: 'Hotel transit nyaman dekat pusat kota. Cocok untuk perjalanan bisnis dengan fasilitas yang praktis dan efisien.',
-    amenities: ['📶 WiFi', '☕ Sarapan', '🚐 Antar Jemput Bandara', '🅿 Parkir'],
-    rooms: [
-      { id: 3, name: 'Kamar Standard', price: 450000, capacity: 2, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop', description: 'Kamar bersih dan nyaman untuk transit.', amenities: ['🛏 Queen Bed', '📶 WiFi', '❄️ AC', '📺 TV'], badge: null, badgeClass: '', featured: false, status: 'available' },
-      { id: 4, name: 'Kamar Keluarga', price: 750000, capacity: 4, image: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=600&h=400&fit=crop', description: 'Kamar luas untuk keluarga.', amenities: ['🛏 2 Tempat Tidur', '📶 WiFi', '❄️ AC', '☕ Mini Bar'], badge: '💎 Hemat', badgeClass: 'loyalty', featured: false, status: 'available' }
-    ]
-  },
-  {
-    image: '/images/hotel-3.jpg',
-    rating: 4.6,
-    reviewCount: 156,
-    priceFrom: 620000,
-    stars: 4,
-    description: 'Hotel modern dengan suasana tenang dan akses mudah ke pusat aktivitas kota.',
-    amenities: ['🏊 Kolam Renang', '🍽 Restoran', '💆 Spa', '🅿 Parkir'],
-    rooms: [
-      { id: 5, name: 'Kamar River View', price: 620000, capacity: 2, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop', description: 'Kamar dengan pemandangan langsung ke area terbaik hotel.', amenities: ['🛏 King Bed', '📶 WiFi', '❄️ AC', '🌅 View'], badge: '🌟 Populer', badgeClass: 'seasonal', featured: true, status: 'available' }
-    ]
-  },
-  {
-    image: '/images/hotel-4.jpg',
-    rating: 4.5,
-    reviewCount: 98,
-    priceFrom: 550000,
-    stars: 4,
-    description: 'Resort dengan sentuhan tradisional dan modern. Cocok untuk keluarga maupun liburan singkat.',
-    amenities: ['🏊 Kolam Renang', '🌿 Tur Budaya', '🍽 Restoran', '🎭 Pertunjukan Seni'],
-    rooms: [
-      { id: 6, name: 'Villa Heritage', price: 1100000, capacity: 3, image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&h=400&fit=crop', description: 'Villa dengan dekorasi khas lokal.', amenities: ['🛏 King Bed', '📶 WiFi', '🌿 Taman Pribadi', '🎭 Tur Gratis'], badge: '🏛 Heritage', badgeClass: 'early-bird', featured: true, status: 'available' }
-    ]
-  }
+const HOTEL_FALLBACK_IMAGES = [
+  '/images/hotel-1.jpg',
+  '/images/hotel-2.jpg',
+  '/images/hotel-3.jpg',
+  '/images/hotel-4.jpg'
+]
+
+const ROOM_FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop',
+  'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&h=400&fit=crop',
+  'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=600&h=400&fit=crop'
 ]
 
 function parseCity(location = '') {
-  const parts = location.split(',').map(part => part.trim()).filter(Boolean)
+  const parts = String(location || '')
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+
   return parts.at(-1) || 'Indonesia'
 }
 
-function cloneRoom(room, hotelId, hotelName, index, fallbackRoomId) {
-  return {
-    ...room,
-    id: room.id ?? fallbackRoomId ?? index + 1,
-    id_list_kamar: room.id_list_kamar ?? fallbackRoomId ?? index + 1,
-    hotelId,
-    hotelName,
-    status: room.status === 'available' || room.status === 'AVAILABLE' ? 'available' : 'available'
-  }
+function toNumber(value, fallback = 0) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : fallback
 }
 
-function mapPresetHotel(row, index = 0) {
-  // Ambil dummy hanya sebagai fallback
-  const fallbackPreset = HOTEL_PRESETS[index % HOTEL_PRESETS.length]
-  const hotelName = row.hotel_name || `Hotel ${index + 1}`
-  const address = row.location || ''
+function normalizeStatus(status = '') {
+  return String(status || '').toLowerCase().trim()
+}
 
-  return {
-    id: row.id_list_hotel,
-    companyId: row.id_company_profile,
-    name: hotelName,
-    city: parseCity(address),
-    address,
-    description: row.description || fallbackPreset.description,
-    image: row.image || fallbackPreset.image,
-    rating: row.rating ?? fallbackPreset.rating,
-    reviewCount: row.reviewCount ?? fallbackPreset.reviewCount,
-    priceFrom: row.priceFrom ?? fallbackPreset.priceFrom,
-    stars: row.stars ?? fallbackPreset.stars,
-    amenities: row.amenities?.length ? [...row.amenities] : [...fallbackPreset.amenities],
-    rooms: row.rooms?.length ? row.rooms.map((room, roomIndex) => cloneRoom(room, row.id_list_hotel, hotelName, roomIndex)) : fallbackPreset.rooms.map((room, roomIndex) => cloneRoom(room, row.id_list_hotel, hotelName, roomIndex)),
-    contactPerson: row.contact_person,
-    contactEmail: row.contact_email,
-    contactPhone: row.contact_phone
+function splitTextList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map(item => String(item || '').trim())
+      .filter(Boolean)
   }
+
+  if (typeof value !== 'string') {
+    return []
+  }
+
+  return value
+    .split(/[,;\n]/)
+    .map(item => item.trim())
+    .filter(Boolean)
+}
+
+function roundRating(value) {
+  const number = Number(value)
+
+  if (!Number.isFinite(number)) {
+    return 0
+  }
+
+  return Math.round(number * 10) / 10
+}
+
+function getFallbackHotelImage(index = 0) {
+  return HOTEL_FALLBACK_IMAGES[index % HOTEL_FALLBACK_IMAGES.length]
+}
+
+function getFallbackRoomImage(index = 0) {
+  return ROOM_FALLBACK_IMAGES[index % ROOM_FALLBACK_IMAGES.length]
+}
+
+function parseIdList(value) {
+  if (!value) {
+    return []
+  }
+
+  return String(value)
+    .split(',')
+    .map(item => parseInt(item))
+    .filter(item => Number.isInteger(item))
 }
 
 function mapRoom(row, index, hotelId, hotelName) {
-  // Gunakan dummy hanya untuk fallback
-  const fallbackPreset = HOTEL_PRESETS[0]
-  const facility = typeof row.facility === 'string'
-    ? row.facility.split(',').map(item => item.trim()).filter(Boolean)
-    : []
+  const status = normalizeStatus(row.status)
+
+  const rawAvailableCount = row.available_count
+  const rawTotalRooms = row.total_rooms
+  const rawUnavailableCount = row.unavailable_count
+
+  const availableCount =
+    rawAvailableCount !== undefined && rawAvailableCount !== null
+      ? toNumber(rawAvailableCount)
+      : status === 'available'
+        ? 1
+        : 0
+
+  const totalRooms =
+    rawTotalRooms !== undefined && rawTotalRooms !== null
+      ? toNumber(rawTotalRooms)
+      : 1
+
+  const unavailableCount =
+    rawUnavailableCount !== undefined && rawUnavailableCount !== null
+      ? toNumber(rawUnavailableCount)
+      : Math.max(totalRooms - availableCount, 0)
+
+  const availableRoomIds = parseIdList(row.available_room_ids)
+
+  if (availableRoomIds.length === 0 && row.id_list_kamar && availableCount > 0) {
+    availableRoomIds.push(parseInt(row.id_list_kamar))
+  }
+
+  const detailRoomId = row.id_detail_kamar || row.id_list_kamar || index + 1
 
   return {
-    id: row.id_list_kamar,
-    id_list_kamar: row.id_list_kamar,
-    name: row.type_room,
-    price: Number(row.price) || 0,
-    capacity: Number(row.capacity) || 0,
-    image: row.image || fallbackPreset.rooms[0]?.image || fallbackPreset.image,
-    description: row.description || fallbackPreset.description,
-    amenities: facility.length > 0 ? facility : [...(fallbackPreset.rooms[0]?.amenities || [])],
-    badge: row.badge || fallbackPreset.rooms[0]?.badge || null,
-    badgeClass: row.badgeClass || fallbackPreset.rooms[0]?.badgeClass || '',
+    id: `${hotelId}-${detailRoomId}`,
+    id_list_kamar: row.id_list_kamar || availableRoomIds[0] || null,
+    id_detail_kamar: row.id_detail_kamar || null,
+
+    name: row.type_room || row.name || 'Tipe kamar belum diisi',
+    price: toNumber(row.price),
+    capacity: toNumber(row.capacity),
+
+    image: row.room_image || row.image || getFallbackRoomImage(index),
+    description: row.description || '',
+    facilities: splitTextList(row.facility),
+
+    availableCount,
+    totalRooms,
+    unavailableCount,
+    availableRoomIds,
+
+    badge: null,
+    badgeClass: '',
     featured: index === 0,
-    status: row.status === 'available' ? 'available' : 'unavailable',
+    status: availableCount > 0 ? 'available' : 'unavailable',
+
     hotelId,
     hotelName
   }
 }
 
+function mapHotel(row, rooms = [], ratingSummary = null, index = 0) {
+  const hotelId = row.id_list_hotel
+  const hotelName = row.hotel_name || 'Nama hotel belum diisi'
+  const address = row.location || ''
+
+  const availableRooms = rooms.filter(room => room.status === 'available')
+
+  const availablePrices = availableRooms
+    .map(room => toNumber(room.price))
+    .filter(price => price > 0)
+
+  const databasePrice = toNumber(row.priceFrom || row.min_price || row.price_from)
+
+  const priceFrom =
+    availablePrices.length > 0
+      ? Math.min(...availablePrices)
+      : databasePrice
+
+  const averageRating = ratingSummary
+    ? ratingSummary.rata_rata_rating
+    : row.rata_rata_rating
+
+  const reviewCount = ratingSummary
+    ? ratingSummary.total_rating
+    : row.total_rating
+
+  const totalAvailableRooms = rooms.reduce((total, room) => {
+    return total + toNumber(room.availableCount)
+  }, 0)
+
+  const totalPhysicalRooms = rooms.reduce((total, room) => {
+    return total + toNumber(room.totalRooms)
+  }, 0)
+
+  return {
+    id: hotelId,
+    companyId: row.id_company_profile,
+
+    name: hotelName,
+    city: parseCity(address),
+    address,
+
+    description: row.description || '',
+    policy: row.policy || '',
+
+    image: row.image || row.hotel_image || getFallbackHotelImage(index),
+
+    rating: roundRating(averageRating),
+    reviewCount: toNumber(reviewCount),
+
+    priceFrom,
+    stars: toNumber(row.stars || row.hotel_stars || row.kelas_bintang),
+
+    facilities: splitTextList(row.facility),
+
+    rooms,
+    totalAvailableRooms,
+    totalPhysicalRooms,
+
+    contactPerson: row.contact_person || '',
+    contactEmail: row.contact_email || '',
+    contactPhone: row.contact_phone || ''
+  }
+}
+
 export const useHotelStore = defineStore('hotel', () => {
   const hotels = ref([])
-  const ratings = ref(JSON.parse(localStorage.getItem('pabwRatings') || '[]'))
+  const ratings = ref([])
   const loadedHotelIds = ref(new Set())
+  const loadedAllHotels = ref(false)
+
+  async function getHotelDescriptionFromDatabase(hotelId, fallbackRow = {}) {
+    try {
+      const response = await apiGet(`/hotel/descriptions/${hotelId}`)
+
+      if (response?.data) {
+        return {
+          ...fallbackRow,
+          ...response.data
+        }
+      }
+    } catch (error) {
+      console.error('Gagal mengambil deskripsi hotel:', error)
+    }
+
+    try {
+      const response = await apiGet(`/hotel/${hotelId}`)
+
+      if (response?.data) {
+        return {
+          ...fallbackRow,
+          ...response.data
+        }
+      }
+    } catch (error) {
+      console.error('Gagal mengambil detail hotel:', error)
+    }
+
+    return fallbackRow
+  }
+
+  async function getHotelRoomsFromDatabase(hotelId, hotelName = '') {
+    try {
+      const response = await apiGet(`/rooms/available?id_list_hotel=${hotelId}&limit=1000&offset=0`)
+      const rows = Array.isArray(response?.data) ? response.data : []
+
+      return rows.map((room, index) => {
+        return mapRoom(room, index, hotelId, hotelName || room.hotel_name || '')
+      })
+    } catch (error) {
+      console.error('Gagal mengambil data kamar hotel:', error)
+      return []
+    }
+  }
+
+  async function getHotelRatingFromDatabase(hotelId) {
+    try {
+      const response = await apiGet(`/hotels/${hotelId}/ratings?limit=20&offset=0`)
+      const summary = response?.data?.summary || null
+      const ratingRows = Array.isArray(response?.data?.ratings) ? response.data.ratings : []
+
+      ratings.value = ratings.value.filter(item => item.id_list_hotel !== hotelId)
+
+      ratings.value.push(...ratingRows.map(item => ({
+        ...item,
+        id_list_hotel: hotelId
+      })))
+
+      return summary
+    } catch (error) {
+      console.error('Gagal mengambil rating hotel:', error)
+
+      return {
+        total_rating: 0,
+        rata_rata_rating: 0
+      }
+    }
+  }
+
+  async function buildHotelFromDatabase(row, index = 0) {
+    const hotelId = row.id_list_hotel
+
+    const hotelDetail = await getHotelDescriptionFromDatabase(hotelId, row)
+
+    const rooms = await getHotelRoomsFromDatabase(
+      hotelId,
+      hotelDetail.hotel_name || row.hotel_name
+    )
+
+    const ratingSummary = await getHotelRatingFromDatabase(hotelId)
+
+    return mapHotel(hotelDetail, rooms, ratingSummary, index)
+  }
 
   async function loadHotels(force = false) {
-    if (hotels.value.length > 0 && !force) {
+    if (loadedAllHotels.value && hotels.value.length > 0 && !force) {
       return hotels.value
     }
 
-    const response = await apiGet('/hotel/all')
-    const rows = Array.isArray(response?.data) ? response.data : []
-    hotels.value = rows.map((row, index) => mapPresetHotel(row, index))
-    return hotels.value
+    try {
+      const response = await apiGet('/hotel/all')
+      const rows = Array.isArray(response?.data) ? response.data : []
+
+      const hotelRows = await Promise.all(
+        rows.map((row, index) => buildHotelFromDatabase(row, index))
+      )
+
+      hotels.value = hotelRows
+
+      loadedHotelIds.value = new Set(
+        hotelRows
+          .map(hotel => hotel.id)
+          .filter(Boolean)
+      )
+
+      loadedAllHotels.value = true
+
+      return hotels.value
+    } catch (error) {
+      console.error('Gagal mengambil daftar hotel:', error)
+
+      hotels.value = []
+      loadedHotelIds.value = new Set()
+      loadedAllHotels.value = false
+
+      return hotels.value
+    }
   }
 
-  async function loadHotelById(id) {
+  async function loadHotelById(id, force = false) {
     const hotelId = parseInt(id)
+
     if (!hotelId) {
       return null
     }
 
-    const hotelResponse = await apiGet(`/hotel/${hotelId}`)
+    if (loadedHotelIds.value.has(hotelId) && !force) {
+      return hotels.value.find(hotel => hotel.id === hotelId) || null
+    }
 
-    const hotelRow = hotelResponse?.data
-    if (!hotelRow) {
+    const existingIndex = hotels.value.findIndex(item => item.id === hotelId)
+    const fallbackIndex = existingIndex >= 0 ? existingIndex : Math.max(hotelId - 1, 0)
+
+    const existingHotel = hotels.value.find(item => item.id === hotelId) || {}
+    const hotelRow = await getHotelDescriptionFromDatabase(hotelId, existingHotel)
+
+    if (!hotelRow || !hotelRow.id_list_hotel) {
       return null
     }
 
-    const existingIndex = hotels.value.findIndex(hotel => hotel.id === hotelId)
-    const fallbackHotel = mapPresetHotel(hotelRow, existingIndex >= 0 ? existingIndex : hotels.value.length)
-
-    try {
-      const roomsResponse = await apiGet(`/rooms/available?id_list_hotel=${hotelId}`)
-      const roomRows = Array.isArray(roomsResponse?.data) ? roomsResponse.data : []
-      fallbackHotel.rooms = roomRows.length > 0
-        ? roomRows.map((room, index) => mapRoom(room, index, hotelId, fallbackHotel.name))
-        : fallbackHotel.rooms
-    } catch (error) {
-      fallbackHotel.rooms = fallbackHotel.rooms
-    }
+    const rooms = await getHotelRoomsFromDatabase(hotelId, hotelRow.hotel_name)
+    const ratingSummary = await getHotelRatingFromDatabase(hotelId)
+    const hotel = mapHotel(hotelRow, rooms, ratingSummary, fallbackIndex)
 
     if (existingIndex >= 0) {
-      hotels.value.splice(existingIndex, 1, fallbackHotel)
+      hotels.value.splice(existingIndex, 1, hotel)
     } else {
-      hotels.value.push(fallbackHotel)
+      hotels.value.push(hotel)
     }
 
     loadedHotelIds.value.add(hotelId)
-    return fallbackHotel
+
+    return hotel
   }
 
   function getHotelById(id) {
-    return hotels.value.find(h => h.id === parseInt(id))
+    return hotels.value.find(hotel => hotel.id === parseInt(id))
   }
 
-  function addRating(hotelId, userId, score, comment) {
-    const existing = ratings.value.find(r => r.hotelId === hotelId && r.userId === userId)
-    if (existing) {
-      existing.score = score
-      existing.comment = comment
-      existing.date = new Date().toISOString()
-    } else {
-      ratings.value.push({ hotelId, userId, score, comment, date: new Date().toISOString() })
-    }
-    localStorage.setItem('pabwRatings', JSON.stringify(ratings.value))
-
-    // Update hotel rating average
-    const hotelRatings = ratings.value.filter(r => r.hotelId === hotelId)
-    const avg = hotelRatings.reduce((sum, r) => sum + r.score, 0) / hotelRatings.length
-    const hotel = hotels.value.find(h => h.id === hotelId)
-    if (hotel) {
-      hotel.rating = Math.round(avg * 10) / 10
-      hotel.reviewCount = hotelRatings.length
-    }
+  async function addRating(hotelId) {
+    await loadHotelById(hotelId, true)
   }
 
-  function getRatingByUser(hotelId, userId) {
-    return ratings.value.find(r => r.hotelId === hotelId && r.userId === userId)
+  function getRatingByUser() {
+    return null
   }
 
-  return { hotels, ratings, loadHotels, loadHotelById, getHotelById, addRating, getRatingByUser }
+  return {
+    hotels,
+    ratings,
+    loadHotels,
+    loadHotelById,
+    getHotelById,
+    addRating,
+    getRatingByUser
+  }
 })

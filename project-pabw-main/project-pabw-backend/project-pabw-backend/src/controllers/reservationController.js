@@ -413,11 +413,35 @@ export const createReservation = async (req, res) => {
   const connection = await pool.getConnection();
 
   try {
-    const { id_user, id_list_kamar, checkin_time, checkout_time } = req.body;
+    const {
+      id_user,
+      id_list_kamar,
+      id_list_hotel,
+      id_detail_kamar,
+      jumlah_kamar = 1,
+      checkin_time,
+      checkout_time
+    } = req.body;
 
-    if (!id_user || !id_list_kamar || !checkin_time || !checkout_time) {
+    if (!id_user || !checkin_time || !checkout_time) {
       return res.status(400).json({
-        message: "id_user, id_list_kamar, checkin_time, dan checkout_time wajib diisi."
+        message: "id_user, checkin_time, dan checkout_time wajib diisi."
+      });
+    }
+
+    const requestedRoomCount = parseInt(jumlah_kamar);
+
+    if (!Number.isInteger(requestedRoomCount) || requestedRoomCount < 1) {
+      return res.status(400).json({
+        message: "jumlah_kamar minimal 1."
+      });
+    }
+
+    const isGroupedBooking = id_list_hotel && id_detail_kamar;
+
+    if (!isGroupedBooking && !id_list_kamar) {
+      return res.status(400).json({
+        message: "id_list_kamar atau kombinasi id_list_hotel dan id_detail_kamar wajib diisi."
       });
     }
 
@@ -425,11 +449,15 @@ export const createReservation = async (req, res) => {
     const checkoutDate = new Date(checkout_time);
 
     if (isNaN(checkinDate.getTime()) || isNaN(checkoutDate.getTime())) {
-      return res.status(400).json({ message: "Format checkin_time atau checkout_time tidak valid." });
+      return res.status(400).json({
+        message: "Format checkin_time atau checkout_time tidak valid."
+      });
     }
 
     if (checkoutDate <= checkinDate) {
-      return res.status(400).json({ message: "checkout_time harus lebih besar dari checkin_time." });
+      return res.status(400).json({
+        message: "checkout_time harus lebih besar dari checkin_time."
+      });
     }
 
     await connection.beginTransaction();
@@ -441,97 +469,183 @@ export const createReservation = async (req, res) => {
 
     if (userRows.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ message: "User tidak ditemukan." });
+      return res.status(404).json({
+        message: "User tidak ditemukan."
+      });
     }
 
-    const [roomRows] = await connection.query(
-      `SELECT
-        lk.id_list_kamar,
-        lk.room_number,
-        lk.price,
-        lk.status,
-        lh.id_list_hotel,
-        lh.id_company_profile,
-        lh.hotel_name,
-        lh.location,
-        dk.type_room,
-        dk.capacity
-      FROM list_kamar lk
-      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
-      WHERE lk.id_list_kamar = ?
-      FOR UPDATE`,
-      [parseInt(id_list_kamar)]
-    );
+    let roomRows = [];
 
-    if (roomRows.length === 0) {
-      await connection.rollback();
-      return res.status(404).json({ message: "Kamar tidak ditemukan." });
-    }
+    if (isGroupedBooking) {
+      const [rows] = await connection.query(
+        `
+        SELECT
+          lk.id_list_kamar,
+          lk.room_number,
+          lk.price,
+          lk.status,
+          lk.id_detail_kamar,
 
-    const room = roomRows[0];
+          lh.id_list_hotel,
+          lh.id_company_profile,
+          lh.hotel_name,
+          lh.location,
 
-    if (room.status !== "available") {
-      await connection.rollback();
-      return res.status(409).json({ message: "Kamar tidak tersedia untuk dipesan." });
+          dk.type_room,
+          dk.capacity
+        FROM list_kamar lk
+        JOIN list_hotel lh
+          ON lk.id_list_hotel = lh.id_list_hotel
+        JOIN detail_kamar dk
+          ON lk.id_detail_kamar = dk.id_detail_kamar
+        WHERE lk.id_list_hotel = ?
+          AND lk.id_detail_kamar = ?
+          AND lk.status = 'available'
+        ORDER BY lk.room_number ASC
+        LIMIT ?
+        FOR UPDATE
+        `,
+        [
+          parseInt(id_list_hotel),
+          parseInt(id_detail_kamar),
+          requestedRoomCount
+        ]
+      );
+
+      roomRows = rows;
+
+      if (roomRows.length < requestedRoomCount) {
+        await connection.rollback();
+        return res.status(409).json({
+          message: `Kamar tersedia tidak cukup. Diminta ${requestedRoomCount}, tersedia ${roomRows.length}.`
+        });
+      }
+    } else {
+      const [rows] = await connection.query(
+        `
+        SELECT
+          lk.id_list_kamar,
+          lk.room_number,
+          lk.price,
+          lk.status,
+          lk.id_detail_kamar,
+
+          lh.id_list_hotel,
+          lh.id_company_profile,
+          lh.hotel_name,
+          lh.location,
+
+          dk.type_room,
+          dk.capacity
+        FROM list_kamar lk
+        JOIN list_hotel lh
+          ON lk.id_list_hotel = lh.id_list_hotel
+        JOIN detail_kamar dk
+          ON lk.id_detail_kamar = dk.id_detail_kamar
+        WHERE lk.id_list_kamar = ?
+        FOR UPDATE
+        `,
+        [parseInt(id_list_kamar)]
+      );
+
+      if (rows.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({
+          message: "Kamar tidak ditemukan."
+        });
+      }
+
+      if (rows[0].status !== "available") {
+        await connection.rollback();
+        return res.status(409).json({
+          message: "Kamar tidak tersedia untuk dipesan."
+        });
+      }
+
+      roomRows = rows;
     }
 
     const oneDayMs = 1000 * 60 * 60 * 24;
     const totalDays = Math.max(1, Math.ceil((checkoutDate - checkinDate) / oneDayMs));
-    const amount = parseFloat(room.price) * totalDays;
 
-    const formatMysqlDateTime = (date) => date.toISOString().slice(0, 19).replace("T", " ");
+    const formatMysqlDateTime = (date) => {
+      return date.toISOString().slice(0, 19).replace("T", " ");
+    };
 
-    const [result] = await connection.query(
-      `INSERT INTO history_purchase
-       (id_user, id_company_profile, id_list_kamar, purchase_date, checkin_time, checkout_time, amount, status)
-       VALUES (?, ?, ?, NOW(), ?, ?, ?, 'confirmed')`,
-      [
-        parseInt(id_user),
-        room.id_company_profile,
-        parseInt(id_list_kamar),
-        formatMysqlDateTime(checkinDate),
-        formatMysqlDateTime(checkoutDate),
-        amount
-      ]
-    );
+    const checkinMysql = formatMysqlDateTime(checkinDate);
+    const checkoutMysql = formatMysqlDateTime(checkoutDate);
+
+    const historyIds = [];
+    let totalAmount = 0;
+
+    for (const room of roomRows) {
+      const amount = parseFloat(room.price) * totalDays;
+      totalAmount += amount;
+
+      const [insertResult] = await connection.query(
+        `
+        INSERT INTO history_purchase
+          (id_user, id_company_profile, id_list_kamar, purchase_date, checkin_time, checkout_time, amount, status)
+        VALUES
+          (?, ?, ?, NOW(), ?, ?, ?, 'confirmed')
+        `,
+        [
+          parseInt(id_user),
+          room.id_company_profile,
+          room.id_list_kamar,
+          checkinMysql,
+          checkoutMysql,
+          amount
+        ]
+      );
+
+      historyIds.push(insertResult.insertId);
+    }
+
+    const roomIds = roomRows.map(room => room.id_list_kamar);
+    const placeholders = roomIds.map(() => "?").join(",");
 
     await connection.query(
-      `UPDATE list_kamar SET status = 'not available' WHERE id_list_kamar = ?`,
-      [parseInt(id_list_kamar)]
-    );
-
-    const [reservationRows] = await connection.query(
-      `SELECT
-        hp.id_history,
-        hp.purchase_date,
-        hp.checkin_time,
-        hp.checkout_time,
-        hp.amount,
-        hp.status,
-        lk.room_number,
-        lh.hotel_name,
-        lh.location,
-        dk.type_room,
-        dk.capacity,
-        u.name AS customer_name,
-        u.email AS customer_email
-      FROM history_purchase hp
-      JOIN user u ON hp.id_user = u.id_user
-      JOIN list_kamar lk ON hp.id_list_kamar = lk.id_list_kamar
-      JOIN list_hotel lh ON lk.id_list_hotel = lh.id_list_hotel
-      JOIN detail_kamar dk ON lk.id_detail_kamar = dk.id_detail_kamar
-      WHERE hp.id_history = ?`,
-      [result.insertId]
+      `
+      UPDATE list_kamar
+      SET status = 'not available'
+      WHERE id_list_kamar IN (${placeholders})
+      `,
+      roomIds
     );
 
     await connection.commit();
 
+    const firstRoom = roomRows[0];
+
     res.status(201).json({
       message: "Reservasi kamar berhasil dibuat",
       data: {
-        ...reservationRows[0],
-        total_malam: totalDays
+        id_history: historyIds[0],
+        history_ids: historyIds,
+
+        id_user: parseInt(id_user),
+        id_list_hotel: firstRoom.id_list_hotel,
+        id_detail_kamar: firstRoom.id_detail_kamar,
+
+        hotel_name: firstRoom.hotel_name,
+        location: firstRoom.location,
+        type_room: firstRoom.type_room,
+        capacity: firstRoom.capacity,
+
+        jumlah_kamar: roomRows.length,
+        reserved_rooms: roomRows.map(room => ({
+          id_list_kamar: room.id_list_kamar,
+          room_number: room.room_number,
+          price: room.price
+        })),
+
+        checkin_time: checkinMysql,
+        checkout_time: checkoutMysql,
+        total_malam: totalDays,
+        total_amount: totalAmount,
+        amount: totalAmount,
+        status: "confirmed"
       }
     });
 

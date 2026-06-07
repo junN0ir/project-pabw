@@ -7,7 +7,7 @@ import {
 const router = express.Router();
 
 // UC9 Memberikan Rating ke Hotel
-router.post("/ratings/hotel", createHotelRating);
+router.post("/hotels/:id_list_hotel/ratings", createHotelRating);
 
 // Tambahan untuk melihat rating hotel
 router.get("/hotels/:id_list_hotel/ratings", getHotelRatings);

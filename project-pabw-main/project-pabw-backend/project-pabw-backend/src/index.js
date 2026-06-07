@@ -38,7 +38,7 @@ app.use("/booking", bookingRoutes);
 app.use("/checkout", checkoutRoutes);
 app.use(mitraRoutes);
 app.use(ratingRoutes);
-app.use(recommendationRoutes);
+app.use("/llm", recommendationRoutes);
 
 const PORT = process.env.PORT || 3000;
 

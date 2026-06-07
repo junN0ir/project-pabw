@@ -11,8 +11,10 @@
       <h3>{{ hotel.name }}</h3>
       <p class="hotel-address">{{ hotel.address }}</p>
       <p class="hotel-desc">{{ hotel.description.slice(0, 100) }}...</p>
-      <div class="hotel-amenities">
-        <span v-for="a in hotel.amenities.slice(0, 4)" :key="a">{{ a }}</span>
+      <div v-if="hotel.facilities?.length" class="hotel-facilities">
+        <span v-for="facility in hotel.facilities.slice(0, 4)" :key="facility">
+          {{ facility }}
+        </span>
       </div>
       <div class="hotel-footer">
         <div class="hotel-rating">
@@ -80,9 +82,9 @@ const formatCurrency = (amount) =>
 
 .hotel-desc { color: var(--text-light); font-size: 0.88rem; line-height: 1.5; margin-bottom: 1rem; flex-grow: 1; }
 
-.hotel-amenities { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+.hotel-facilities { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
 
-.hotel-amenities span {
+.hotel-facilities span {
   background: var(--navy-50); color: var(--text-dark);
   padding: 3px 10px; border-radius: 20px; font-size: 0.78rem;
 }
