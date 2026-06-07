@@ -7,25 +7,50 @@ import {
   getAllReservations,
   createReservation
 } from "../controllers/reservationController.js";
+import { requireAuth, requireRole } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// UC6 Memesan Kamar Hotel
-router.post("/reservations/book", createReservation);
+router.post(
+  "/reservations/book",
+  requireAuth,
+  requireRole("customer"),
+  createReservation
+);
 
-// UC8 Melihat Riwayat Reservasi berdasarkan customer
-router.get("/customer/:id_user/history", getCustomerReservationHistory);
+router.get(
+  "/customer/:id_user/history",
+  requireAuth,
+  requireRole("customer", "admin"),
+  getCustomerReservationHistory
+);
 
-// Detail Reservasi
-router.get("/customer/:id_user/detail/:id_history", getReservationDetail);
+router.get(
+  "/customer/:id_user/detail/:id_history",
+  requireAuth,
+  requireRole("customer", "admin"),
+  getReservationDetail
+);
 
-// Statistik Reservasi
-router.get("/customer/:id_user/stats", getReservationStats);
+router.get(
+  "/customer/:id_user/stats",
+  requireAuth,
+  requireRole("customer", "admin"),
+  getReservationStats
+);
 
-// UC13 Melihat Reservasi Tiap Hotel dan UC19 Melihat Customer yang Melakukan Reservasi
-router.get("/mitra/:id_company_profile/history", getMitraReservationHistory);
+router.get(
+  "/mitra/:id_company_profile/history",
+  requireAuth,
+  requireRole("mitra", "admin"),
+  getMitraReservationHistory
+);
 
-// Reservation routes lihat semua
-router.get("/reservations", getAllReservations);
+router.get(
+  "/reservations",
+  requireAuth,
+  requireRole("admin"),
+  getAllReservations
+);
 
 export default router;

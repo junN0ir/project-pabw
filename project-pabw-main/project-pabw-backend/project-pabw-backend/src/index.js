@@ -29,7 +29,7 @@ app.get("/", (req, res) => {
   res.send("Working");
 });
 
-app.use(authRoutes);
+app.use("/auth", authRoutes);
 app.use(sessionRoutes);
 app.use(reservationRoutes);
 app.use(roomRoutes);

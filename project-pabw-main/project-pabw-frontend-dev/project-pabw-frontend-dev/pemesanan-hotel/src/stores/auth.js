@@ -22,55 +22,129 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function persistSession(safeUser) {
+  function persistSession(safeUser, backendToken) {
     user.value = safeUser
-    token.value = `backend-token-${Date.now()}`
+    token.value = backendToken
+
     localStorage.setItem('pabwUser', JSON.stringify(safeUser))
-    localStorage.setItem('pabwToken', token.value)
+    localStorage.setItem('pabwToken', backendToken)
   }
 
   async function login(identifier, password) {
     try {
-      const response = await apiPost('/login', { identifier, password })
+      const response = await apiPost('/auth/login', {
+        identifier,
+        password
+      })
 
-      if (!response?.data) {
-        return { success: false, message: 'Respons login tidak valid.' }
+      if (!response?.data || !response?.token) {
+        return {
+          success: false,
+          message: 'Respons login tidak valid.'
+        }
       }
 
       const safeUser = normalizeUser(response.data)
-      persistSession(safeUser)
-      return { success: true, data: safeUser }
+      persistSession(safeUser, response.token)
+
+      return {
+        success: true,
+        data: safeUser
+      }
     } catch (error) {
-      return { success: false, message: error.message || 'Login gagal.' }
+      return {
+        success: false,
+        message: error.payload?.error || error.message || 'Login gagal.',
+        payload: error.payload || null
+      }
     }
   }
 
   async function register(name, email, password, phone) {
     try {
-      const response = await apiPost('/register', {
+      const response = await apiPost('/auth/register', {
         name,
         email,
         password,
         phone_number: phone
       })
 
-      if (!response?.data) {
-        return { success: false, message: 'Respons register tidak valid.' }
+      return {
+        success: true,
+        message: response.message,
+        email: response?.data?.email || email
       }
-
-      const safeUser = normalizeUser(response.data)
-      persistSession(safeUser)
-      return { success: true, data: safeUser }
     } catch (error) {
-      return { success: false, message: error.message || 'Registrasi gagal.' }
+      return {
+        success: false,
+        message: error.payload?.error || error.message || 'Registrasi gagal.',
+        payload: error.payload || null
+      }
     }
   }
 
-  function logout() {
-    user.value = null
-    token.value = null
-    localStorage.removeItem('pabwUser')
-    localStorage.removeItem('pabwToken')
+  async function verifyEmail(email, otp) {
+    try {
+      const response = await apiPost('/auth/verify-email', {
+        email,
+        otp
+      })
+
+      if (!response?.data || !response?.token) {
+        return {
+          success: false,
+          message: 'Respons verifikasi tidak valid.'
+        }
+      }
+
+      const safeUser = normalizeUser(response.data)
+      persistSession(safeUser, response.token)
+
+      return {
+        success: true,
+        data: safeUser
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error.payload?.error || error.message || 'Verifikasi email gagal.',
+        payload: error.payload || null
+      }
+    }
+  }
+
+  async function resendVerification(email) {
+    try {
+      const response = await apiPost('/auth/resend-verification', {
+        email
+      })
+
+      return {
+        success: true,
+        message: response.message
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error.payload?.error || error.message || 'Gagal mengirim ulang OTP.',
+        payload: error.payload || null
+      }
+    }
+  }
+
+  async function logout() {
+    try {
+      if (token.value) {
+        await apiPost('/auth/logout', {})
+      }
+    } catch (error) {
+      console.warn(error.message)
+    } finally {
+      user.value = null
+      token.value = null
+      localStorage.removeItem('pabwUser')
+      localStorage.removeItem('pabwToken')
+    }
   }
 
   function updateProfile(data) {
@@ -78,5 +152,18 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('pabwUser', JSON.stringify(user.value))
   }
 
-  return { user, token, isLoggedIn, isCustomer, isMitra, isAdmin, login, register, logout, updateProfile }
+  return {
+    user,
+    token,
+    isLoggedIn,
+    isCustomer,
+    isMitra,
+    isAdmin,
+    login,
+    register,
+    verifyEmail,
+    resendVerification,
+    logout,
+    updateProfile
+  }
 })

@@ -296,3 +296,48 @@ ALTER TABLE company_profile
 ADD CONSTRAINT fk_company_profile_user
 FOREIGN KEY (id_user) REFERENCES user(id_user);
 -- Dump completed on 2026-05-29 22:33:22
+
+ALTER TABLE user
+ADD COLUMN is_verified TINYINT(1) NOT NULL DEFAULT 0 AFTER password;
+
+UPDATE user
+SET is_verified = 1;
+
+CREATE TABLE IF NOT EXISTS email_verification_codes (
+  id_code INT NOT NULL AUTO_INCREMENT,
+  email VARCHAR(255) NOT NULL,
+  purpose ENUM('verify_email', 'reset_password') NOT NULL DEFAULT 'verify_email',
+  otp_hash VARCHAR(255) NOT NULL,
+  attempts INT NOT NULL DEFAULT 0,
+  expires_at DATETIME NOT NULL,
+  consumed_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_code),
+  INDEX idx_email_purpose (email, purpose),
+  INDEX idx_expires_at (expires_at)
+);
+
+ALTER TABLE `user`
+ADD COLUMN IF NOT EXISTS `is_verified` TINYINT(1) NOT NULL DEFAULT 0 AFTER `password`;
+
+UPDATE `user`
+SET `is_verified` = 1
+WHERE `is_verified` = 0;
+
+CREATE TABLE IF NOT EXISTS `email_verification_codes` (
+  `id_code` INT NOT NULL AUTO_INCREMENT,
+  `email` VARCHAR(255) NOT NULL,
+  `purpose` ENUM('verify_email', 'reset_password') NOT NULL DEFAULT 'verify_email',
+  `otp_hash` VARCHAR(255) NOT NULL,
+  `attempts` INT NOT NULL DEFAULT 0,
+  `expires_at` DATETIME NOT NULL,
+  `consumed_at` DATETIME DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_code`),
+  INDEX `idx_email_purpose` (`email`, `purpose`),
+  INDEX `idx_expires_at` (`expires_at`)
+);
+
+DESCRIBE user;
+SHOW TABLES LIKE 'email_verification_codes';
+DESCRIBE email_verification_codes;

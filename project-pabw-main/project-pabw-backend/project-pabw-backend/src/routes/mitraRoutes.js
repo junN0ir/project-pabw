@@ -9,31 +9,64 @@ import {
   getAllMitra
 } from "../controllers/mitraController.js";
 import { getRoomAvailability } from "../controllers/roomController.js";
+import { requireAuth, requireRole } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// GET semua mitra (admin)
-router.get("/mitra", getAllMitra);
+router.get(
+  "/mitra",
+  requireAuth,
+  requireRole("admin"),
+  getAllMitra
+);
 
-// UC11 Menambahkan Mitra
-router.post("/mitra", addMitra);
+router.post(
+  "/mitra",
+  requireAuth,
+  requireRole("admin"),
+  addMitra
+);
 
-// UC12 Menghapus Mitra
-router.delete("/mitra/:id_company_profile", deleteMitra);
+router.delete(
+  "/mitra/:id_company_profile",
+  requireAuth,
+  requireRole("admin"),
+  deleteMitra
+);
 
-// UC17 Melihat Pendapatan
-router.get("/mitra/:id_company_profile/revenue", getRevenue);
+router.get(
+  "/mitra/:id_company_profile/revenue",
+  requireAuth,
+  requireRole("mitra", "admin"),
+  getRevenue
+);
 
-// UC18 Melihat Ketersediaan Kamar
-router.get("/mitra/:id_company_profile/availability", getRoomAvailability);
+router.get(
+  "/mitra/:id_company_profile/availability",
+  requireAuth,
+  requireRole("mitra", "admin"),
+  getRoomAvailability
+);
 
-// UC14 Mengubah Deskripsi Hotel
-router.put("/mitra/hotels/:id_list_hotel/description", updateHotelDescription);
+router.put(
+  "/mitra/hotels/:id_list_hotel/description",
+  requireAuth,
+  requireRole("mitra", "admin"),
+  updateHotelDescription
+);
 
-// UC15 Mengubah Kategori Kamar
-router.put("/mitra/room-categories/:id_detail_kamar", updateRoomCategory);
+router.put(
+  "/mitra/room-categories/:id_detail_kamar",
+  requireAuth,
+  requireRole("mitra", "admin"),
+  updateRoomCategory
+);
 
-// UC16 Mengubah Status Kamar
-router.put("/mitra/rooms/:id_list_kamar/status", updateRoomStatus);
+router.put(
+  "/mitra/rooms/:id_list_kamar/status",
+  requireAuth,
+  requireRole("mitra", "admin"),
+  updateRoomStatus
+);
 
 export default router;

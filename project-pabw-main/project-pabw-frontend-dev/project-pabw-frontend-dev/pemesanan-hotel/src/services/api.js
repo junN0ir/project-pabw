@@ -7,12 +7,17 @@ function buildUrl(path) {
 }
 
 async function request(path, options = {}) {
+  const token = localStorage.getItem('pabwToken')
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {})
+  }
+
   const response = await fetch(buildUrl(path), {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    },
-    ...options
+    ...options,
+    headers
   })
 
   const contentType = response.headers.get('content-type') || ''
@@ -23,7 +28,10 @@ async function request(path, options = {}) {
     const message = typeof payload === 'object' && payload !== null
       ? payload.message || payload.error || 'Request ke server gagal.'
       : 'Request ke server gagal.'
-    throw new Error(message)
+
+    const error = new Error(message)
+    error.payload = payload
+    throw error
   }
 
   return payload
@@ -36,7 +44,7 @@ export function apiGet(path, options = {}) {
   })
 }
 
-export function apiPost(path, body, options = {}) {
+export function apiPost(path, body = {}, options = {}) {
   return request(path, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -44,7 +52,7 @@ export function apiPost(path, body, options = {}) {
   })
 }
 
-export function apiPut(path, body, options = {}) {
+export function apiPut(path, body = {}, options = {}) {
   return request(path, {
     method: 'PUT',
     body: JSON.stringify(body),
