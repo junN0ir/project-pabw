@@ -180,7 +180,7 @@ const searchLink = computed(() => {
 })
 
 const stats = computed(() => [
-  { target: hotelStore.hotels.length, suffix: '+',  label: 'Hotel Mitra'   },
+  { target: hotelStore.hotels.length, suffix: '',  label: 'Hotel Mitra'   },
   { target: 1200,                      suffix: '+',  label: 'Tamu Puas'     },
   { target: 4,                         suffix: '',   label: 'Kota'          },
   { target: 24,                        suffix: '/7', label: 'Layanan'       },

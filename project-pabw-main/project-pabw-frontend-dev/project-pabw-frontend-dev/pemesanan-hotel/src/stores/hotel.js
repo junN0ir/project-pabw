@@ -72,9 +72,10 @@ function cloneRoom(room, hotelId, hotelName, index, fallbackRoomId) {
 }
 
 function mapPresetHotel(row, index = 0) {
-  const preset = HOTEL_PRESETS[index % HOTEL_PRESETS.length]
+  // Ambil dummy hanya sebagai fallback
+  const fallbackPreset = HOTEL_PRESETS[index % HOTEL_PRESETS.length]
   const hotelName = row.hotel_name || `Hotel ${index + 1}`
-  const address = row.location || preset.address || ''
+  const address = row.location || ''
 
   return {
     id: row.id_list_hotel,
@@ -82,14 +83,14 @@ function mapPresetHotel(row, index = 0) {
     name: hotelName,
     city: parseCity(address),
     address,
-    description: preset.description,
-    image: preset.image,
-    rating: preset.rating,
-    reviewCount: preset.reviewCount,
-    priceFrom: preset.priceFrom,
-    stars: preset.stars,
-    amenities: [...preset.amenities],
-    rooms: preset.rooms.map((room, roomIndex) => cloneRoom(room, row.id_list_hotel, hotelName, roomIndex)),
+    description: row.description || fallbackPreset.description,
+    image: row.image || fallbackPreset.image,
+    rating: row.rating ?? fallbackPreset.rating,
+    reviewCount: row.reviewCount ?? fallbackPreset.reviewCount,
+    priceFrom: row.priceFrom ?? fallbackPreset.priceFrom,
+    stars: row.stars ?? fallbackPreset.stars,
+    amenities: row.amenities?.length ? [...row.amenities] : [...fallbackPreset.amenities],
+    rooms: row.rooms?.length ? row.rooms.map((room, roomIndex) => cloneRoom(room, row.id_list_hotel, hotelName, roomIndex)) : fallbackPreset.rooms.map((room, roomIndex) => cloneRoom(room, row.id_list_hotel, hotelName, roomIndex)),
     contactPerson: row.contact_person,
     contactEmail: row.contact_email,
     contactPhone: row.contact_phone
@@ -97,7 +98,8 @@ function mapPresetHotel(row, index = 0) {
 }
 
 function mapRoom(row, index, hotelId, hotelName) {
-  const preset = HOTEL_PRESETS[index % HOTEL_PRESETS.length]
+  // Gunakan dummy hanya untuk fallback
+  const fallbackPreset = HOTEL_PRESETS[0]
   const facility = typeof row.facility === 'string'
     ? row.facility.split(',').map(item => item.trim()).filter(Boolean)
     : []
@@ -108,11 +110,11 @@ function mapRoom(row, index, hotelId, hotelName) {
     name: row.type_room,
     price: Number(row.price) || 0,
     capacity: Number(row.capacity) || 0,
-    image: preset.rooms[0]?.image || preset.image,
-    description: row.description || preset.description,
-    amenities: facility.length > 0 ? facility : [...(preset.rooms[0]?.amenities || [])],
-    badge: preset.rooms[0]?.badge || null,
-    badgeClass: preset.rooms[0]?.badgeClass || '',
+    image: row.image || fallbackPreset.rooms[0]?.image || fallbackPreset.image,
+    description: row.description || fallbackPreset.description,
+    amenities: facility.length > 0 ? facility : [...(fallbackPreset.rooms[0]?.amenities || [])],
+    badge: row.badge || fallbackPreset.rooms[0]?.badge || null,
+    badgeClass: row.badgeClass || fallbackPreset.rooms[0]?.badgeClass || '',
     featured: index === 0,
     status: row.status === 'available' ? 'available' : 'unavailable',
     hotelId,
