@@ -21,10 +21,11 @@ export function requireAuth(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
     req.user = {
-      id: payload.id,
-      nama: payload.nama,
-      email: payload.email,
-      role: payload.role
+        id: payload.id,
+        nama: payload.nama,
+        email: payload.email,
+        role: payload.role,
+        session_id: payload.session_id
     };
 
     next();

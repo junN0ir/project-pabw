@@ -3,52 +3,54 @@
     <div class="container">
       <div class="profile-layout">
 
-        <!-- Sidebar Profil -->
         <aside class="profile-sidebar">
-          <!-- Avatar + Info -->
           <div class="avatar-wrap">
-            <div class="avatar-circle">{{ auth.user?.name?.charAt(0)?.toUpperCase() }}</div>
+            <div class="avatar-circle">
+              {{ auth.user?.name?.charAt(0)?.toUpperCase() }}
+            </div>
             <div class="avatar-ring"></div>
           </div>
+
           <h3 class="sidebar-name">{{ auth.user?.name }}</h3>
           <p class="sidebar-email">{{ auth.user?.email }}</p>
 
-          <!-- Info chips -->
           <div class="info-chips">
             <div class="info-chip">
               <span class="chip-icon"></span>
               <span>{{ auth.user?.phone || '-' }}</span>
             </div>
-            <div class="info-chip">
-              <span class="chip-icon"></span>
-              <span>Bergabung {{ formatDate(auth.user?.joinDate) }}</span>
-            </div>
+
             <div class="info-chip">
               <span class="chip-icon"></span>
               <span>{{ auth.user?.role || 'Member' }}</span>
             </div>
           </div>
 
-          <!-- Menu navigasi tab -->
           <div class="sidebar-menu">
-            <button :class="['menu-btn', { active: tab === 'profile' }]" @click="tab = 'profile'">
+            <button
+              :class="['menu-btn', { active: tab === 'profile' }]"
+              @click="switchTab('profile')"
+            >
               <span class="menu-icon"></span>
               <span>Edit Profil</span>
             </button>
-            <button :class="['menu-btn', { active: tab === 'password' }]" @click="tab = 'password'">
+
+            <button
+              :class="['menu-btn', { active: tab === 'password' }]"
+              @click="switchTab('password')"
+            >
               <span class="menu-icon"></span>
               <span>Ubah Password</span>
             </button>
           </div>
         </aside>
 
-        <!-- Konten Utama -->
         <div class="profile-content">
 
-          <!-- ── Edit Profil ── -->
           <div v-if="tab === 'profile'" class="content-card">
             <div class="card-header">
               <div class="card-icon"></div>
+
               <div>
                 <h2>Edit Profil</h2>
                 <p class="card-subtitle">Perbarui informasi pribadi Anda</p>
@@ -57,7 +59,13 @@
 
             <Transition name="notif">
               <div v-if="profileSuccess" class="notif notif-success">
-                 Profil berhasil diperbarui!
+                Profil berhasil diperbarui!
+              </div>
+            </Transition>
+
+            <Transition name="notif">
+              <div v-if="profileError" class="notif notif-error">
+                {{ profileError }}
               </div>
             </Transition>
 
@@ -65,69 +73,211 @@
               <div class="form-row">
                 <div class="form-group">
                   <label>Nama Lengkap <span class="req">*</span></label>
-                  <input type="text" v-model="profileForm.name" required placeholder="Masukkan nama lengkap" />
+                  <input
+                    type="text"
+                    v-model="profileForm.name"
+                    required
+                    placeholder="Masukkan nama lengkap"
+                  />
                 </div>
+
                 <div class="form-group">
                   <label>Email <span class="req">*</span></label>
-                  <input type="email" v-model="profileForm.email" required placeholder="email@contoh.com" />
+                  <input
+                    type="email"
+                    v-model="profileForm.email"
+                    disabled
+                    class="input-disabled"
+                    placeholder="email@contoh.com"
+                  />
                 </div>
               </div>
+
               <div class="form-group">
                 <label>No. Telepon</label>
-                <input type="tel" v-model="profileForm.phone" placeholder="+62 812 0000 0000" />
+                <input
+                  type="tel"
+                  v-model="profileForm.phone"
+                  placeholder="+62 812 0000 0000"
+                />
               </div>
+
               <div class="form-actions">
-                <button type="submit" class="btn btn-primary">
-                  <span></span> Simpan Perubahan
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  :disabled="profileLoading"
+                >
+                  <span></span>
+                  {{ profileLoading ? 'Menyimpan...' : 'Simpan Perubahan' }}
                 </button>
               </div>
             </form>
           </div>
 
-          <!-- ── Ubah Password ── -->
           <div v-else class="content-card">
             <div class="card-header">
               <div class="card-icon"></div>
+
               <div>
                 <h2>Ubah Password</h2>
-                <p class="card-subtitle">Pastikan gunakan password yang kuat</p>
+                <p class="card-subtitle">
+                  Password baru akan disimpan setelah verifikasi OTP email
+                </p>
               </div>
             </div>
 
             <Transition name="notif">
-              <div v-if="passError" class="notif notif-error"> {{ passError }}</div>
-            </Transition>
-            <Transition name="notif">
-              <div v-if="passSuccess" class="notif notif-success"> Password berhasil diubah!</div>
+              <div v-if="passError" class="notif notif-error">
+                {{ passError }}
+              </div>
             </Transition>
 
-            <form @submit.prevent="savePassword" class="profile-form">
+            <Transition name="notif">
+              <div v-if="passSuccess" class="notif notif-success">
+                {{ passSuccess }}
+              </div>
+            </Transition>
+
+            <form
+              v-if="passwordStep === 'form'"
+              @submit.prevent="requestChangePasswordOtp"
+              class="profile-form"
+            >
               <div class="form-group">
                 <label>Password Lama <span class="req">*</span></label>
-                <input type="password" v-model="passForm.old" required placeholder="Password saat ini" />
+
+                <div class="input-password">
+                  <input
+                    :type="showOldPassword ? 'text' : 'password'"
+                    v-model="passForm.old"
+                    required
+                    placeholder="Password saat ini"
+                  />
+
+                  <button
+                    type="button"
+                    class="toggle-pass"
+                    @click="showOldPassword = !showOldPassword"
+                  >
+                    {{ showOldPassword ? '🙈' : '👁' }}
+                  </button>
+                </div>
               </div>
+
               <div class="form-row">
                 <div class="form-group">
                   <label>Password Baru <span class="req">*</span></label>
-                  <input type="password" v-model="passForm.new" required placeholder="Min. 6 karakter" minlength="6" />
+
+                  <div class="input-password">
+                    <input
+                      :type="showNewPassword ? 'text' : 'password'"
+                      v-model="passForm.new"
+                      required
+                      placeholder="Min. 6 karakter"
+                      minlength="6"
+                    />
+
+                    <button
+                      type="button"
+                      class="toggle-pass"
+                      @click="showNewPassword = !showNewPassword"
+                    >
+                      {{ showNewPassword ? '🙈' : '👁' }}
+                    </button>
+                  </div>
                 </div>
+
                 <div class="form-group">
                   <label>Konfirmasi Password <span class="req">*</span></label>
-                  <input type="password" v-model="passForm.confirm" required placeholder="Ulangi password baru" />
+
+                  <div class="input-password">
+                    <input
+                      :type="showConfirmPassword ? 'text' : 'password'"
+                      v-model="passForm.confirm"
+                      required
+                      placeholder="Ulangi password baru"
+                    />
+
+                    <button
+                      type="button"
+                      class="toggle-pass"
+                      @click="showConfirmPassword = !showConfirmPassword"
+                    >
+                      {{ showConfirmPassword ? '🙈' : '👁' }}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <!-- Strength indicator -->
               <div v-if="passForm.new" class="strength-wrap">
                 <div class="strength-bar">
-                  <div class="strength-fill" :style="{ width: strengthPct + '%', background: strengthColor }"></div>
+                  <div
+                    class="strength-fill"
+                    :style="{ width: strengthPct + '%', background: strengthColor }"
+                  ></div>
                 </div>
-                <span class="strength-label" :style="{ color: strengthColor }">{{ strengthLabel }}</span>
+
+                <span class="strength-label" :style="{ color: strengthColor }">
+                  {{ strengthLabel }}
+                </span>
               </div>
 
               <div class="form-actions">
-                <button type="submit" class="btn btn-primary">
-                  <span></span> Ubah Password
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  :disabled="passwordLoading"
+                >
+                  <span></span>
+                  {{ passwordLoading ? 'Mengirim OTP...' : 'Submit' }}
+                </button>
+              </div>
+            </form>
+
+            <form
+              v-else
+              @submit.prevent="confirmChangePasswordOtp"
+              class="profile-form"
+            >
+              <div class="otp-box">
+                <div class="otp-icon">🔐</div>
+
+                <div>
+                  <h3>Verifikasi OTP</h3>
+                  <p>
+                    Kode OTP sudah dikirim ke email akun Anda. Masukkan kode tersebut untuk menyimpan password baru.
+                  </p>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Kode OTP <span class="req">*</span></label>
+                <input
+                  type="text"
+                  v-model="passForm.otp"
+                  required
+                  maxlength="6"
+                  placeholder="Masukkan 6 digit OTP"
+                />
+              </div>
+
+              <div class="form-actions password-actions">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  @click="cancelChangePasswordOtp"
+                  :disabled="passwordLoading"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  :disabled="passwordLoading"
+                >
+                  {{ passwordLoading ? 'Memverifikasi...' : 'Konfirmasi Ganti Password' }}
                 </button>
               </div>
             </form>
@@ -140,77 +290,236 @@
 </template>
 
 <script setup>
+import { apiPost } from '@/services/api'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
-const tab = ref('profile')
-const profileSuccess = ref(false)
-const passError = ref('')
-const passSuccess = ref(false)
 
-const profileForm = reactive({ name: '', email: '', phone: '' })
-const passForm    = reactive({ old: '', new: '', confirm: '' })
+const tab = ref('profile')
+
+const profileSuccess = ref(false)
+const profileError = ref('')
+const profileLoading = ref(false)
+
+const passwordStep = ref('form')
+const passwordLoading = ref(false)
+const passError = ref('')
+const passSuccess = ref('')
+const pendingNewPassword = ref('')
+
+const showOldPassword = ref(false)
+const showNewPassword = ref(false)
+const showConfirmPassword = ref(false)
+
+const profileForm = reactive({
+  name: '',
+  email: '',
+  phone: ''
+})
+
+const passForm = reactive({
+  old: '',
+  new: '',
+  confirm: '',
+  otp: ''
+})
 
 onMounted(() => {
-  profileForm.name  = auth.user?.name  || ''
+  profileForm.name = auth.user?.name || ''
   profileForm.email = auth.user?.email || ''
   profileForm.phone = auth.user?.phone || ''
 })
 
-function saveProfile() {
-  auth.updateProfile({ name: profileForm.name, email: profileForm.email, phone: profileForm.phone })
-  profileSuccess.value = true
-  setTimeout(() => profileSuccess.value = false, 3000)
+function switchTab(nextTab) {
+  tab.value = nextTab
+  profileError.value = ''
+  profileSuccess.value = false
+
+  if (nextTab !== 'password') {
+    resetPasswordForm()
+  }
 }
 
-function savePassword() {
+async function saveProfile() {
+  profileSuccess.value = false
+  profileError.value = ''
+  profileLoading.value = true
+
+  try {
+    await auth.updateProfile({
+      name: profileForm.name,
+      phone: profileForm.phone
+    })
+
+    profileForm.name = auth.user?.name || profileForm.name
+    profileForm.email = auth.user?.email || profileForm.email
+    profileForm.phone = auth.user?.phone || profileForm.phone
+
+    profileSuccess.value = true
+
+    setTimeout(() => {
+      profileSuccess.value = false
+    }, 3000)
+  } catch (error) {
+    profileError.value = error.message || 'Gagal memperbarui profil.'
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+async function requestChangePasswordOtp() {
   passError.value = ''
-  if (passForm.new !== passForm.confirm) {
-    passError.value = 'Password baru tidak cocok.'
+  passSuccess.value = ''
+
+  if (!passForm.old || passForm.old.trim() === '') {
+    passError.value = 'Password lama wajib diisi.'
     return
   }
-  passSuccess.value = true
-  Object.assign(passForm, { old: '', new: '', confirm: '' })
-  setTimeout(() => passSuccess.value = false, 3000)
+
+  if (!passForm.new || passForm.new.trim() === '') {
+    passError.value = 'Password baru wajib diisi.'
+    return
+  }
+
+  if (passForm.new.length < 6) {
+    passError.value = 'Password baru minimal 6 karakter.'
+    return
+  }
+
+  if (passForm.new !== passForm.confirm) {
+    passError.value = 'Konfirmasi password baru tidak sama.'
+    return
+  }
+
+  passwordLoading.value = true
+
+  try {
+    await apiPost('/auth/change-password', {
+      old_password: passForm.old,
+      new_password: passForm.new
+    })
+
+    pendingNewPassword.value = passForm.new
+    passwordStep.value = 'otp'
+    passSuccess.value = 'Kode OTP ganti password sudah dikirim ke email.'
+  } catch (error) {
+    passError.value = error.message || 'Gagal mengirim OTP ganti password.'
+  } finally {
+    passwordLoading.value = false
+  }
 }
 
-// Password strength
+async function confirmChangePasswordOtp() {
+  passError.value = ''
+  passSuccess.value = ''
+
+  if (!passForm.otp || passForm.otp.trim() === '') {
+    passError.value = 'Kode OTP wajib diisi.'
+    return
+  }
+
+  if (!pendingNewPassword.value) {
+    passError.value = 'Password baru tidak ditemukan. Silakan ulangi proses.'
+    return
+  }
+
+  passwordLoading.value = true
+
+  try {
+    await apiPost('/auth/change-password/confirm', {
+      otp: passForm.otp,
+      new_password: pendingNewPassword.value
+    })
+
+    passSuccess.value = 'Password berhasil diubah.'
+    resetPasswordForm(false)
+
+    setTimeout(() => {
+      passSuccess.value = ''
+    }, 3000)
+  } catch (error) {
+    passError.value = error.message || 'Konfirmasi ganti password gagal.'
+  } finally {
+    passwordLoading.value = false
+  }
+}
+
+function cancelChangePasswordOtp() {
+  passwordStep.value = 'form'
+  passForm.otp = ''
+  pendingNewPassword.value = ''
+  passError.value = ''
+  passSuccess.value = ''
+}
+
+function resetPasswordForm(clearMessage = true) {
+  passwordStep.value = 'form'
+  passwordLoading.value = false
+  pendingNewPassword.value = ''
+
+  passForm.old = ''
+  passForm.new = ''
+  passForm.confirm = ''
+  passForm.otp = ''
+
+  showOldPassword.value = false
+  showNewPassword.value = false
+  showConfirmPassword.value = false
+
+  if (clearMessage) {
+    passError.value = ''
+    passSuccess.value = ''
+  }
+}
+
 const strengthPct = computed(() => {
   const p = passForm.new
+
   if (!p) return 0
+
   let score = 0
-  if (p.length >= 6)  score += 25
+
+  if (p.length >= 6) score += 25
   if (p.length >= 10) score += 25
   if (/[A-Z]/.test(p)) score += 25
   if (/[0-9!@#$%^&*]/.test(p)) score += 25
+
   return score
 })
+
 const strengthLabel = computed(() => {
   const s = strengthPct.value
+
   if (s <= 25) return 'Lemah'
   if (s <= 50) return 'Cukup'
   if (s <= 75) return 'Kuat'
+
   return 'Sangat Kuat'
 })
+
 const strengthColor = computed(() => {
   const s = strengthPct.value
+
   if (s <= 25) return '#ef4444'
   if (s <= 50) return '#f59e0b'
   if (s <= 75) return '#3b82f6'
+
   return '#22c55e'
 })
 
 function formatDate(d) {
   if (!d) return '-'
-  return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  return new Date(d).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
 }
 </script>
 
 <style scoped>
-/* ══════════════════════════════════
-   Page
-══════════════════════════════════ */
 .profile-page {
   padding: 2.5rem 0 4rem;
   min-height: 80vh;
@@ -223,9 +532,6 @@ function formatDate(d) {
   padding: 0 1.5rem;
 }
 
-/* ══════════════════════════════════
-   Layout Grid
-══════════════════════════════════ */
 .profile-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -233,9 +539,6 @@ function formatDate(d) {
   align-items: start;
 }
 
-/* ══════════════════════════════════
-   Sidebar
-══════════════════════════════════ */
 .profile-sidebar {
   background: #fff;
   border-radius: 20px;
@@ -247,7 +550,6 @@ function formatDate(d) {
   border: 1px solid #e8edf5;
 }
 
-/* Avatar */
 .avatar-wrap {
   position: relative;
   width: 96px;
@@ -297,7 +599,6 @@ function formatDate(d) {
   word-break: break-all;
 }
 
-/* Info chips */
 .info-chips {
   display: flex;
   flex-direction: column;
@@ -317,9 +618,11 @@ function formatDate(d) {
   text-align: left;
 }
 
-.chip-icon { font-size: 1rem; flex-shrink: 0; }
+.chip-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
 
-/* Sidebar menu */
 .sidebar-menu {
   display: flex;
   flex-direction: column;
@@ -357,11 +660,10 @@ function formatDate(d) {
   border-color: #0b2545;
 }
 
-.menu-icon { font-size: 1.1rem; }
+.menu-icon {
+  font-size: 1.1rem;
+}
 
-/* ══════════════════════════════════
-   Content Card
-══════════════════════════════════ */
 .content-card {
   background: #fff;
   border-radius: 20px;
@@ -404,9 +706,6 @@ function formatDate(d) {
   margin: 0;
 }
 
-/* ══════════════════════════════════
-   Form
-══════════════════════════════════ */
 .profile-form {
   display: flex;
   flex-direction: column;
@@ -433,9 +732,12 @@ function formatDate(d) {
   letter-spacing: .5px;
 }
 
-.req { color: #dc2626; }
+.req {
+  color: #dc2626;
+}
 
 .form-group input {
+  width: 100%;
   padding: .7rem 1rem;
   border: 1.5px solid #e2e8f0;
   border-radius: 10px;
@@ -453,7 +755,25 @@ function formatDate(d) {
   box-shadow: 0 0 0 4px rgba(11,37,69,.08);
 }
 
-/* Strength bar */
+.input-password {
+  position: relative;
+}
+
+.input-password input {
+  padding-right: 48px;
+}
+
+.toggle-pass {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
 .strength-wrap {
   display: flex;
   align-items: center;
@@ -480,18 +800,58 @@ function formatDate(d) {
   white-space: nowrap;
 }
 
-/* Actions */
+.otp-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f4f6fb;
+  border: 1px solid #e8edf5;
+  border-radius: 14px;
+}
+
+.otp-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff7ed;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.otp-box h3 {
+  margin: 0 0 .35rem;
+  color: #0b2545;
+  font-size: 1rem;
+}
+
+.otp-box p {
+  margin: 0;
+  color: #64748b;
+  font-size: .88rem;
+  line-height: 1.5;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
+  gap: .75rem;
   padding-top: .5rem;
   border-top: 1px solid #f0f4fa;
   margin-top: .5rem;
 }
 
+.password-actions {
+  justify-content: space-between;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: .5rem;
   padding: .7rem 1.5rem;
   border-radius: 10px;
@@ -513,9 +873,24 @@ function formatDate(d) {
   box-shadow: 0 6px 20px rgba(11,37,69,.3);
 }
 
-/* ══════════════════════════════════
-   Notifications
-══════════════════════════════════ */
+.btn-secondary {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.btn-secondary:hover {
+  background: #d1d5db;
+}
+
+button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  transform: none;
+}
+
 .notif {
   padding: .75rem 1.1rem;
   border-radius: 10px;
@@ -536,16 +911,28 @@ function formatDate(d) {
   border: 1px solid #fca5a5;
 }
 
-.notif-enter-active, .notif-leave-active { transition: all .3s ease; }
-.notif-enter-from, .notif-leave-to { opacity: 0; transform: translateY(-8px); }
+.notif-enter-active,
+.notif-leave-active {
+  transition: all .3s ease;
+}
 
-/* ══════════════════════════════════
-   Responsive
-══════════════════════════════════ */
+.notif-enter-from,
+.notif-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.input-disabled {
+  background: #eef2f7 !important;
+  color: #64748b !important;
+  cursor: not-allowed;
+}
+
 @media (max-width: 860px) {
   .profile-layout {
     grid-template-columns: 1fr;
   }
+
   .profile-sidebar {
     position: static;
     display: grid;
@@ -554,30 +941,81 @@ function formatDate(d) {
     text-align: left;
     align-items: start;
   }
-  .avatar-wrap { margin: 0; }
-  .info-chips { margin-bottom: .8rem; }
-  .sidebar-name { margin-top: .3rem; }
+
+  .avatar-wrap {
+    margin: 0;
+  }
+
+  .info-chips {
+    margin-bottom: .8rem;
+  }
+
+  .sidebar-name {
+    margin-top: .3rem;
+  }
+
   .sidebar-menu {
     grid-column: 1 / -1;
     flex-direction: row;
     flex-wrap: wrap;
     padding-top: 1rem;
   }
-  .menu-btn { flex: 1; min-width: 140px; }
+
+  .menu-btn {
+    flex: 1;
+    min-width: 140px;
+  }
 }
 
 @media (max-width: 560px) {
+  .profile-page {
+    padding: 1.5rem 0 3rem;
+  }
+
+  .container {
+    padding: 0 1rem;
+  }
+
   .profile-sidebar {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
-  .form-row { grid-template-columns: 1fr; }
-  .content-card { padding: 1.4rem 1.1rem; }
-  .card-header { gap: .8rem; }
-  .card-icon { width: 40px; height: 40px; font-size: 1.1rem; }
-  .card-header h2 { font-size: 1.1rem; }
-  .sidebar-email { font-size: .8rem; }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .content-card {
+    padding: 1.4rem 1.1rem;
+  }
+
+  .card-header {
+    gap: .8rem;
+  }
+
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+  }
+
+  .card-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .sidebar-email {
+    font-size: .8rem;
+  }
+
+  .form-actions,
+  .password-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
 }
 </style>

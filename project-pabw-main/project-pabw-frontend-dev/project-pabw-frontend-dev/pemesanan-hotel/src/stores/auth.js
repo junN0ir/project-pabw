@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiPost } from '@/services/api'
+import { apiPost, apiPut  } from '@/services/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(JSON.parse(localStorage.getItem('pabwUser') || 'null'))
@@ -37,10 +37,34 @@ export const useAuthStore = defineStore('auth', () => {
         password
       })
 
+      return {
+        success: true,
+        requiresOtp: response.requires_login_otp === true,
+        email: response?.data?.email || '',
+        role: response?.data?.role || 'customer',
+        message: response.message || 'Kode OTP login sudah dikirim.'
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error.payload?.message || error.payload?.error || error.message || 'Login gagal.',
+        payload: error.payload || null
+      }
+    }
+  }
+
+  async function verifyLoginOtp(email, otp, role = 'customer') {
+    try {
+      const response = await apiPost('/auth/login/verify-otp', {
+        email,
+        otp,
+        user_type: role
+      })
+
       if (!response?.data || !response?.token) {
         return {
           success: false,
-          message: 'Respons login tidak valid.'
+          message: 'Respons verifikasi OTP login tidak valid.'
         }
       }
 
@@ -54,7 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (error) {
       return {
         success: false,
-        message: error.payload?.error || error.message || 'Login gagal.',
+        message: error.payload?.message || error.payload?.error || error.message || 'Verifikasi OTP login gagal.',
         payload: error.payload || null
       }
     }
@@ -147,9 +171,22 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function updateProfile(data) {
-    user.value = { ...user.value, ...data }
-    localStorage.setItem('pabwUser', JSON.stringify(user.value))
+  async function updateProfile(data) {
+    const response = await apiPut("/auth/profile", {
+      name: data.name,
+      phone_number: data.phone
+    });
+
+    const safeUser = normalizeUser(response.data);
+
+    user.value = safeUser;
+    localStorage.setItem("pabwUser", JSON.stringify(safeUser));
+
+    return {
+      success: true,
+      message: response.message,
+      data: safeUser
+    };
   }
 
   return {
@@ -160,6 +197,7 @@ export const useAuthStore = defineStore('auth', () => {
     isMitra,
     isAdmin,
     login,
+    verifyLoginOtp,
     register,
     verifyEmail,
     resendVerification,

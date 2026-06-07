@@ -32,7 +32,7 @@ export const getCustomerReservationHistory = async (req, res) => {
       `SELECT 
         hp.id_history, hp.purchase_date, hp.checkin_time, hp.checkout_time, hp.amount, hp.status,
         lk.room_number,
-        lh.hotel_name, lh.location,
+        lh.id_list_hotel, lh.hotel_name, lh.location,
         dk.type_room, dk.capacity,
         cp.company_name
       FROM history_purchase hp
@@ -61,7 +61,9 @@ export const getCustomerReservationHistory = async (req, res) => {
         amount: r.amount,
         status: r.status,
         room_number: r.room_number,
+        id_list_hotel: r.id_list_hotel,
         hotel_name: r.hotel_name,
+        id_list_hotel: r.id_list_hotel,
         roomType: r.type_room,
         capacity: r.capacity,
         hotel_location: r.location,

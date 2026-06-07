@@ -341,3 +341,44 @@ CREATE TABLE IF NOT EXISTS `email_verification_codes` (
 DESCRIBE user;
 SHOW TABLES LIKE 'email_verification_codes';
 DESCRIBE email_verification_codes;
+
+SELECT 
+  TABLE_NAME,
+  COLUMN_NAME,
+  CONSTRAINT_NAME
+FROM information_schema.KEY_COLUMN_USAGE
+WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
+AND REFERENCED_TABLE_NAME = 'session_login'
+AND REFERENCED_COLUMN_NAME = 'id_login';
+
+CREATE TABLE session_login_backup AS
+SELECT * FROM session_login;
+
+ALTER TABLE session_login
+ADD COLUMN id_login_new CHAR(36) NULL FIRST;
+
+UPDATE session_login
+SET id_login_new = UUID();
+
+ALTER TABLE session_login
+MODIFY COLUMN id_login INT NOT NULL;
+
+ALTER TABLE session_login
+DROP PRIMARY KEY;
+
+ALTER TABLE session_login
+DROP COLUMN id_login;
+
+ALTER TABLE session_login
+CHANGE COLUMN id_login_new id_login CHAR(36) NOT NULL;
+
+ALTER TABLE session_login
+ADD PRIMARY KEY (id_login);
+
+ALTER TABLE email_verification_codes
+MODIFY COLUMN purpose ENUM(
+  'verify_email',
+  'reset_password',
+  'login_otp',
+  'change_password'
+) NOT NULL DEFAULT 'verify_email';
